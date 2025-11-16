@@ -1,4 +1,4 @@
-import Rating from "../../Components/rateUs";
+import Rating from "../Components/rateUs";
 
 export default function HomePage() {
   return (
