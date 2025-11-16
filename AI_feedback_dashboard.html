@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Feedback Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #555;
+            --border-color: #eee;
+            --primary-blue: #007aff;
+            --red: #dc3545;
+            --green: #008744;
+            --orange: #ff9500;
+            --neutral: #8e8e93;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* --- Header --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            margin: 0;
+        }
+
+        header button {
+            background-color: var(--primary-blue);
+            color: #ffffff;
+            padding: 12px 20px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background-color 0.2s ease;
+            cursor: pointer;
+            border: none;
+        }
+        header button:hover {
+            background-color: #0056b3;
+        }
+
+        /* --- KPI Card Layout --- */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            padding: 1.5rem 2rem;
+        }
+
+        .kpi-card h3 {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin: 0 0 0.5rem 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-card .value {
+            font-size: 3rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        .kpi-card .value.nps-promoter { color: var(--green); }
+        .kpi-card .value.nps-passive { color: var(--orange); }
+        .kpi-card .value.nps-detractor { color: var(--red); }
+
+        /* --- Charts & Topics Layout --- */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            padding: 1.5rem 2rem;
+        }
+        .chart-card h2 {
+            margin-top: 0;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+        
+        /* --- CSS-Only Pie Chart --- */
+        #pie-chart {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: conic-gradient(var(--green) 0% 40%, var(--neutral) 40% 70%, var(--red) 70% 100%);
+            margin: 1rem auto;
+        }
+        #pie-legend {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        .legend-item { display: flex; align-items: center; font-size: 0.9rem; font-weight: 500; }
+        .legend-color { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+
+        /* --- Top Topics "Tag Cloud" --- */
+        .topics-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            padding-top: 1rem;
+        }
+        .topic-tag {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 8px 14px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .topic-tag .count {
+            display: inline-block;
+            background: var(--primary-blue);
+            color: white;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            line-height: 22px;
+            text-align: center;
+            font-size: 0.8rem;
+            margin-left: 8px;
+        }
+
+        /* --- Live Feed Table --- */
+        .table-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            padding: 1.5rem 2rem;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            table-layout: fixed;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            word-wrap: break-word;
+        }
+        th {
+            background-color: #f8f8f8;
+            font-weight: 600;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        th:nth-child(1) { width: 8%; }
+        th:nth-child(2) { width: 12%; }
+        th:nth-child(3) { width: 35%; }
+        th:nth-child(4) { width: 25%; }
+        th:nth-child(5) { width: 20%; }
+        
+        .sentiment-label {
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-weight: 500;
+            display: inline-block;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        .sentiment-Positive { background-color: #e6f7ec; color: var(--green); }
+        .sentiment-Negative { background-color: #fdecea; color: var(--red); }
+        .sentiment-Frustrated { background-color: #fff0e6; color: var(--orange); }
+        .sentiment-Neutral, .sentiment-Unknown, .sentiment-Confused { background-color: #f0f0f0; color: var(--text-secondary); }
+
+        .score-label {
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-align: center;
+        }
+        .score-detractor { color: var(--red); }
+        .score-passive { color: var(--orange); }
+        .score-promoter { color: var(--green); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>AI Feedback Dashboard</h1>
+            <button id="refresh-btn">Refresh Data</button>
+        </header>
+
+        <main>
+            <!-- 1. High-Level KPIs -->
+            <section class="kpi-grid">
+                <div class="kpi-card">
+                    <h3>Overall NPS Score</h3>
+                    <p class="value" id="kpi-nps">...</p>
+                </div>
+                <div class="kpi-card">
+                    <h3>Total Responses</h3>
+                    <p class="value" id="kpi-total">...</p>
+                </div>
+                <div class="kpi-card">
+                    <h3>Overall Sentiment</h3>
+                    <p class="value" id="kpi-sentiment">...</p>
+                </div>
+            </section>
+
+            <!-- 2. Charts & Trends -->
+            <section class="charts-grid">
+                <div class="chart-card">
+                    <h2>Sentiment Breakdown</h2>
+                    <div id="pie-chart"></div>
+                    <div id="pie-legend">
+                        <div class="legend-item"><span class="legend-color" style="background: var(--green);"></span> Positive</div>
+                        <div class="legend-item"><span class="legend-color" style="background: var(--neutral);"></span> Neutral</div>
+                        <div class="legend-item"><span class="legend-color" style="background: var(--red);"></span> Negative</div>
+                        <div class="legend-item"><span class="legend-color" style="background: var(--orange);"></span> Frustrated</div>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h2>Top Feedback Topics</h2>
+                    <div class="topics-cloud" id="topics-cloud">
+                        <p>Loading topics...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. Live Feedback Table -->
+            <section class="table-card">
+                <h2>Live Feedback Feed</h2>
+                <table id="feedback-table">
+                    <thead>
+                        <tr>
+                            <th>Score</th>
+                            <th>Sentiment</th>
+                            <th>Transcription</th>
+                            <th>Key Feedback</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="feedback-body">
+                        <tr>
+                            <td colspan="5" style="text-align: center;">Loading feedback...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // --- CONFIG ---
+        const API_URL = "http://127.0.0.1:5000/dashboard";
+        
+        // --- HACKATHON DEMO SWITCH ---
+        // Set to true to use fake data (guarantees a beautiful demo)
+        // Set to false to call your live backend
+        const USE_DUMMY_DATA = true;
+
+        const DUMMY_DATA = [
+            {"transcription": "The new update is fantastic, everything feels so much faster!", "sentiment": "Positive", "feedback": ["App is faster", "Likes new update"], "score": "10", "timestamp": "2025-10-27T14:30:00.123Z"},
+            {"transcription": "I'm giving this a 3 because the checkout page is just too slow! I kept clicking the button and nothing happened. It's so frustrating.", "sentiment": "Frustrated", "feedback": ["Checkout page is slow", "Button is not working"], "score": "3", "timestamp": "2025-10-27T14:28:15.456Z"},
+            {"transcription": "It's fine. Nothing special, but it works.", "sentiment": "Neutral", "feedback": ["Product works as expected"], "score": "7", "timestamp": "2025-10-27T14:25:05.789Z"},
+            {"transcription": "I can never find the settings page! I looked everywhere and just gave up.", "sentiment": "Confused", "feedback": ["Settings page is hard to find", "Poor navigation"], "score": "5", "timestamp": "2025-10-27T14:22:11.321Z"},
+            {"transcription": "Your customer support is amazing. Solved my problem in 2 minutes.", "sentiment": "Positive", "feedback": ["Excellent customer support", "Fast problem resolution"], "score": "9", "timestamp": "2025-10-27T14:20:00.000Z"},
+            {"transcription": "This is way too expensive for what it does. I'm cancelling my subscription.", "sentiment": "Negative", "feedback": ["Too expensive", "Cancelling subscription"], "score": "1", "timestamp": "2025-10-27T14:19:00.000Z"},
+            {"transcription": "The new dark mode is easy on my eyes. Thanks!", "sentiment": "Positive", "feedback": ["Likes dark mode"], "score": "9", "timestamp": "2025-10-27T14:15:00.000Z"},
+            {"transcription": "I'm... not sure how the new update works. The buttons are all different.", "sentiment": "Confused", "feedback": ["Confused by new update", "UI changes are unclear"], "score": "6", "timestamp": "2025-10-27T14:12:00.000Z"}
+        ];
+
+        // --- DOM Elements ---
+        const tableBody = document.getElementById('feedback-body');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const kpiNpsEl = document.getElementById('kpi-nps');
+        const kpiTotalEl = document.getElementById('kpi-total');
+        const kpiSentimentEl = document.getElementById('kpi-sentiment');
+        const pieChartEl = document.getElementById('pie-chart');
+        const topicsCloudEl = document.getElementById('topics-cloud');
+
+        // --- Data Processing Functions ---
+        
+        function calculateNPS(data) {
+            let promoters = 0;
+            let passives = 0;
+            let detractors = 0;
+            data.forEach(item => {
+                const score = parseInt(item.score, 10);
+                if (score >= 9) promoters++;
+                else if (score >= 7) passives++;
+                else detractors++;
+            });
+            const total = data.length;
+            if (total === 0) return { score: 0, class: 'nps-passive' };
+            
+            const nps = Math.round(((promoters / total) - (detractors / total)) * 100);
+            let npsClass = 'nps-passive';
+            if (nps > 50) npsClass = 'nps-promoter';
+            if (nps < 0) npsClass = 'nps-detractor';
+            
+            return { score: nps, class: npsClass };
+        }
+
+        function getOverallSentiment(data) {
+            const sentimentCounts = {};
+            let maxSentiment = "Neutral";
+            let maxCount = 0;
+            data.forEach(item => {
+                const sentiment = item.sentiment;
+                sentimentCounts[sentiment] = (sentimentCounts[sentiment] || 0) + 1;
+                if (sentimentCounts[sentiment] > maxCount) {
+                    maxCount = sentimentCounts[sentiment];
+                    maxSentiment = sentiment;
+                }
+            });
+            return maxSentiment;
+        }
+
+        function updateKpis(data) {
+            const nps = calculateNPS(data);
+            kpiNpsEl.innerText = nps.score;
+            kpiNpsEl.className = `value ${nps.class}`;
+            
+            kpiTotalEl.innerText = data.length;
+            
+            kpiSentimentEl.innerText = getOverallSentiment(data);
+        }
+        
+        function updateSentimentChart(data) {
+            const sentiments = { Positive: 0, Negative: 0, Frustrated: 0, Neutral: 0, Confused: 0, Unknown: 0 };
+            const total = data.length;
+            if(total === 0) return;
+
+            data.forEach(item => {
+                const s = item.sentiment;
+                if(s === "Positive") sentiments.Positive++;
+                else if(s === "Negative") sentiments.Negative++;
+                else if(s === "Frustrated") sentiments.Frustrated++;
+                else if(s === "Confused") sentiments.Confused++;
+                else sentiments.Neutral++;
+            });
+            sentiments.Neutral += sentiments.Unknown;
+
+            let gradientString = "conic-gradient(";
+            let currentPercent = 0;
+            
+            const posPercent = (sentiments.Positive / total) * 100;
+            if (posPercent > 0) {
+                gradientString += `${var(--green)} 0% ${posPercent}%`;
+                currentPercent = posPercent;
+            }
+
+            const neuPercent = (sentiments.Neutral / total) * 100;
+            if (neuPercent > 0) {
+                gradientString += `, ${var(--neutral)} ${currentPercent}% ${currentPercent + neuPercent}%`;
+                currentPercent += neuPercent;
+            }
+            
+            const negPercent = (sentiments.Negative / total) * 100;
+            if (negPercent > 0) {
+                gradientString += `, ${var(--red)} ${currentPercent}% ${currentPercent + negPercent}%`;
+                currentPercent += negPercent;
+            }
+
+            const frusPercent = (sentiments.Frustrated / total) * 100;
+            if (frusPercent > 0) {
+                gradientString += `, ${var(--orange)} ${currentPercent}% ${currentPercent + frusPercent}%`;
+                currentPercent += frusPercent;
+            }
+            
+            // Fill the rest
+            if(currentPercent < 100) {
+                gradientString += `, var(--bg-color) ${currentPercent}% 100%`;
+            }
+
+            gradientString += ")";
+            pieChartEl.style.background = gradientString;
+        }
+
+        function updateTopTopics(data) {
+            const topicCounts = {};
+            data.forEach(item => {
+                item.feedback.forEach(topic => {
+                    topicCounts[topic] = (topicCounts[topic] || 0) + 1;
+                });
+            });
+            
+            const sortedTopics = Object.entries(topicCounts).sort((a, b) => b[1] - a[1]);
+            
+            topicsCloudEl.innerHTML = ''; // Clear
+            if(sortedTopics.length === 0) {
+                topicsCloudEl.innerHTML = '<p>No topics found yet.</p>';
+                return;
+            }
+
+            sortedTopics.slice(0, 10).forEach(([topic, count]) => {
+                const tag = document.createElement('span');
+                tag.className = 'topic-tag';
+                tag.innerHTML = `${topic} <span class="count">${count}</span>`;
+                topicsCloudEl.appendChild(tag);
+            });
+        }
+
+        function updateTable(data) {
+            if (data.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center;">No feedback yet. Submit some from the widget!</td></tr>`;
+                return;
+            }
+            tableBody.innerHTML = ''; // Clear
+
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                
+                const feedbackList = item.feedback.map(fb => `<li>${fb}</li>`).join('');
+                
+                let scoreClass = 'score-passive';
+                if(item.score >= 9) scoreClass = 'score-promoter';
+                if(item.score <= 6) scoreClass = 'score-detractor';
+
+                row.innerHTML = `
+                    <td class="score ${scoreClass}">${item.score}</td>
+                    <td><span class="sentiment-label sentiment-${item.sentiment}">${item.sentiment}</span></td>
+                    <td>${item.transcription}</td>
+                    <td><ul>${feedbackList}</ul></td>
+                    <td>${new Date(item.timestamp).toLocaleString()}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // --- Main Load Function ---
+        async function loadFeedback() {
+            tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center;">Loading feedback...</td></tr>`;
+            topicsCloudEl.innerHTML = '<p>Loading topics...</p>';
+            
+            let data = [];
+            
+            if (USE_DUMMY_DATA) {
+                data = DUMMY_DATA;
+            } else {
+                try {
+                    const response = await fetch(API_URL);
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch data');
+                    }
+                    data = await response.json();
+                } catch (err) {
+                    console.error(err);
+                    tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: red;">Error loading data. Is the backend server running?</td></tr>`;
+                    return;
+                }
+            }
+
+            // --- Process and Render All Components ---
+            updateKpis(data);
+            updateSentimentChart(data);
+            updateTopTopics(data);
+            updateTable(data);
+        }
+
+        // --- Event Listeners ---
+        refreshBtn.onclick = loadFeedback;
+
+        // Load data when the page opens
+        loadFeedback();
+    </script>
+
+</body>
+</html>

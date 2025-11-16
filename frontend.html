@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI NPS Feedback</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: grid;
+            place-items: center;
+            min-height: 100vh;
+            background-color: #f4f7f6;
+        }
+        #widget-container {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 450px;
+            padding: 2.5rem;
+            box-sizing: border-box;
+            overflow: hidden;
+            text-align: center;
+        }
+        h2 {
+            margin-top: 0;
+            color: #1a1a1a;
+        }
+        p {
+            color: #555;
+            line-height: 1.6;
+        }
+        /* NPS Score Buttons */
+        .nps-scores {
+            display: flex;
+            justify-content: space-between;
+            margin: 2rem 0;
+        }
+        .nps-scores button {
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #555;
+            transition: all 0.2s ease;
+        }
+        .nps-scores button:hover {
+            background-color: #f0f0f0;
+            border-color: #007aff;
+            color: #007aff;
+        }
+        .nps-scores button.selected {
+            background-color: #007aff;
+            border-color: #007aff;
+            color: #fff;
+            transform: scale(1.1);
+        }
+        
+        /* Feedback Section (Hidden by default) */
+        #feedback-section {
+            display: none;
+            margin-top: 1.5rem;
+        }
+        .btn {
+            background-color: #007aff;
+            color: #ffffff;
+            padding: 12px 20px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background-color 0.2s ease;
+            cursor: pointer;
+            border: none;
+            margin: 0.5rem;
+        }
+        .btn:hover { background-color: #0056b3; }
+        .btn[disabled] { background-color: #aaa; }
+        
+        /* Recording styles */
+        #record-btn.recording {
+            background-color: #dc3545;
+        }
+        #record-btn.recording:hover {
+            background-color: #a71d2a;
+        }
+        #audio-playback {
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        /* Thank you message */
+        #thank-you {
+            display: none;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="widget-container">
+        
+        <!-- Step 1: NPS Score -->
+        <div id="score-section">
+            <h2>How likely are you to recommend us?</h2>
+            <div class="nps-scores">
+                <!-- Scores 0-10 will be injected here by JS -->
+            </div>
+            <p>0 (Not likely) to 10 (Very likely)</p>
+        </div>
+
+        <!-- Step 2: Feedback (Hidden) -->
+        <div id="feedback-section">
+            <h2 id="feedback-title">Thanks! What's the main reason for your score?</h2>
+            <p id="record-status">Click to start recording...</p>
+            <audio id="audio-playback" controls></audio>
+            
+            <button id="record-btn" class="btn">Record Voice Feedback</button>
+            <button id="send-btn" class="btn" disabled>Send Feedback</button>
+        </div>
+        
+        <!-- Step 3: Thank You (Hidden) -->
+        <div id="thank-you">
+            <h2>Thank You!</h2>
+            <p>Your feedback has been submitted. We appreciate you helping us improve.</p>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CONFIG ---
+        const BACKEND_URL = "http://127.0.0.1:5000/submit_feedback";
+
+        // --- STATE ---
+        let selectedScore = null;
+        let audioBlob = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+
+        // --- DOM Elements ---
+        const scoreSection = document.getElementById('score-section');
+        const scoreContainer = document.querySelector('.nps-scores');
+        const feedbackSection = document.getElementById('feedback-section');
+        const feedbackTitle = document.getElementById('feedback-title');
+        const recordBtn = document.getElementById('record-btn');
+        const sendBtn = document.getElementById('send-btn');
+        const recordStatus = document.getElementById('record-status');
+        const audioPlayback = document.getElementById('audio-playback');
+        const thankYouView = document.getElementById('thank-you');
+
+        // --- NPS Score Logic ---
+        function createNpsButtons() {
+            for (let i = 0; i <= 10; i++) {
+                const btn = document.createElement('button');
+                btn.innerText = i;
+                btn.dataset.score = i;
+                btn.onclick = () => selectScore(i, btn);
+                scoreContainer.appendChild(btn);
+            }
+        }
+
+        function selectScore(score, selectedButton) {
+            selectedScore = score;
+            
+            // Update button styles
+            document.querySelectorAll('.nps-scores button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            selectedButton.classList.add('selected');
+            
+            // Show feedback section
+            scoreSection.style.display = 'none';
+            feedbackSection.style.display = 'block';
+            
+            // Customize follow-up question
+            if (score <= 6) {
+                feedbackTitle.innerText = `We're sorry to hear that. What's the main thing we can improve?`;
+            } else if (score <= 8) {
+                feedbackTitle.innerText = `Thanks! What could we do to get a 9 or 10?`;
+            } else {
+                feedbackTitle.innerText = `That's great to hear! What did you like most?`;
+            }
+            
+            // Hide the audio player initially
+            audioPlayback.style.display = 'none';
+        }
+
+        // --- Audio Recording Logic ---
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    // Combine all audio chunks into one Blob
+                    audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    audioChunks = [];
+                    
+                    // Show the playback <audio> element
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    audioPlayback.src = audioUrl;
+                    audioPlayback.style.display = 'block';
+
+                    // Enable the send button
+                    sendBtn.disabled = false;
+                    recordStatus.innerText = "Audio recorded. Click Send!";
+                };
+
+                mediaRecorder.start();
+                recordStatus.innerText = "Recording... Click to stop.";
+                recordBtn.innerText = "Stop Recording";
+                recordBtn.classList.add('recording');
+
+            } catch (err) {
+                console.error("Error getting media:", err);
+                recordStatus.innerText = "Could not start recording. Please allow microphone access.";
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                recordBtn.innerText = "Record Again";
+                recordBtn.classList.remove('recording');
+            }
+        }
+
+        recordBtn.onclick = () => {
+            if (!mediaRecorder || mediaRecorder.state === "inactive") {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        };
+
+        // --- Form Submission Logic ---
+        sendBtn.onclick = async () => {
+            if (!audioBlob || selectedScore === null) {
+                alert("Please record your feedback first.");
+                return;
+            }
+
+            sendBtn.disabled = true;
+            sendBtn.innerText = "Sending...";
+
+            // Create a FormData object to send the file and score
+            const formData = new FormData();
+            formData.append('score', selectedScore);
+            formData.append('audio_data', audioBlob, 'feedback.webm');
+
+            try {
+                const response = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server error: ' + (await response.json()).detail);
+                }
+
+                // Show success
+                feedbackSection.style.display = 'none';
+                thankYouView.style.display = 'block';
+
+            } catch (err) {
+                console.error("Error sending feedback:", err);
+                alert("There was an error sending your feedback. Please try again.");
+                sendBtn.disabled = false;
+                sendBtn.innerText = "Send Feedback";
+            }
+        };
+
+        // --- Initialize ---
+        createNpsButtons();
+    </script>
+</body>
+</html>

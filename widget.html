@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversational AI NPS</title>
+    <!-- 
+      We REMOVED the <script> tag from here. 
+      We will import it directly in our main script.
+    -->
+    <style>
+        /* ... all your CSS is identical ... */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: grid;
+            place-items: center;
+            min-height: 100vh;
+            background-color: #f4f7f6;
+            margin: 0;
+        }
+        #widget-container {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 450px;
+            padding: 2.5rem;
+            box-sizing: border-box;
+            overflow: hidden;
+            text-align: center;
+        }
+        h2 { margin-top: 0; color: #1a1a1a; }
+        p { color: #555; line-height: 1.6; }
+        .hidden { display: none; }
+
+        /* NPS Score Buttons */
+        .nps-scores {
+            display: flex;
+            justify-content: space-between;
+            margin: 2rem 0;
+        }
+        .nps-scores button {
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #555;
+            transition: all 0.2s ease;
+        }
+        .nps-scores button:hover {
+            background-color: #f0f0f0;
+            border-color: #007aff;
+            color: #007aff;
+        }
+        .nps-scores button.selected {
+            background-color: #007aff;
+            border-color: #007aff;
+            color: #fff;
+            transform: scale(1.1);
+        }
+        
+        /* Chat UI */
+        #chat-ui {
+            text-align: left;
+        }
+        #chat-box {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: #fdfdfd;
+        }
+        .chat-message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+        .chat-message.user {
+            background-color: #007aff;
+            color: white;
+            margin-left: auto;
+        }
+        .chat-message.ai {
+            background-color: #f0f0f0;
+            color: #1a1a1a;
+        }
+        .chat-message.ai.thinking::after {
+            content: '...';
+            display: inline-block;
+            animation: thinking 1s infinite;
+        }
+        @keyframes thinking {
+            0% { content: '.'; }
+            33% { content: '..'; }
+            66% { content: '...'; }
+        }
+
+        /* Controls */
+        #controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+        }
+        #record-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        #record-btn.recording {
+            background-color: #dc3545;
+            animation: pulse 1.5s infinite;
+        }
+        #record-btn:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+        #record-status {
+            font-weight: 500;
+            color: #555;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="widget-container">
+        <!-- ... all your HTML structure is identical ... -->
+        
+        <!-- Step 1: NPS Score -->
+        <div id="score-section">
+            <h2>How likely are you to recommend us?</h2>
+            <div class="nps-scores">
+                <!-- Scores 0-10 will be injected here by JS -->
+            </div>
+            <p>0 (Not likely) to 10 (Very likely)</p>
+        </div>
+
+        <!-- Step 2: Conversational Feedback (Hidden) -->
+        <div id="chat-ui" class="hidden">
+            <h2>Tell us more...</h2>
+            <div id="chat-box">
+                <!-- Chat messages will be added here -->
+            </div>
+            <div id="controls">
+                <button id="record-btn" title="Start/Stop Recording" disabled>🎤</button>
+                <span id="record-status">Click to speak</span>
+            </div>
+        </div>
+        
+        <!-- Step 3: Thank You (Hidden) -->
+        <div id="thank-you" class="hidden">
+            <h2>Thank You!</h2>
+            <p>Your feedback has been submitted. We appreciate you helping us improve.</p>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- THIS IS THE FIX ---
+        // We import the class directly from the CDN URL
+        import { GoogleGenerativeAI } from "https://cdn.jsdelivr.net/npm/@google/generative-ai/dist/index.min.js";
+        // --- END OF FIX ---
+
+        // --- CONFIG ---
+        const GEMINI_API_KEY = "AIzaSyCkfQWUwMoC8kXVu9UjIWqFCXQwh4o3uJ8";
+        
+        // --- DOM Elements ---
+        const scoreSection = document.getElementById('score-section');
+        const scoreContainer = document.querySelector('.nps-scores');
+        const chatUI = document.getElementById('chat-ui');
+        const chatBox = document.getElementById('chat-box');
+        const recordBtn = document.getElementById('record-btn');
+        const recordStatus = document.getElementById('record-status');
+        const thankYouView = document.getElementById('thank-you');
+
+        // --- STATE ---
+        let selectedScore = null;
+        let mediaRecorder;
+        let audioStream;
+        let aiLiveSession;
+        let isRecording = false;
+
+        // --- 1. NPS Score Logic ---
+        function createNpsButtons() {
+            for (let i = 0; i <= 10; i++) {
+                const btn = document.createElement('button');
+                btn.innerText = i;
+                btn.dataset.score = i;
+                btn.onclick = () => selectScore(i, btn);
+                scoreContainer.appendChild(btn);
+            }
+        }
+
+        async function selectScore(score, selectedButton) {
+            selectedScore = score;
+            document.querySelectorAll('.nps-scores button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            selectedButton.classList.add('selected');
+            
+            // Hide scores, show chat
+            scoreSection.style.display = 'none';
+            chatUI.classList.remove('hidden');
+
+            // Start the AI conversation
+            await startAiConversation();
+        }
+
+        // --- 2. AI & Audio Streaming ---
+        async function startAiConversation() {
+            if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_API_KEY_HERE") {
+                addMessageToChat("ai", "Error: GEMINI_API_KEY is not set. Please add it to the script.", true);
+                return;
+            }
+            
+            addMessageToChat("ai", "Thinking...", false);
+            
+            // --- THIS IS THE FIX ---
+            // We no longer use "new google.generativeai.GoogleGenerativeAI"
+            // We just use the "GoogleGenerativeAI" class we imported
+            const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+            // --- END OF FIX ---
+
+            const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-09-2025" });
+            
+            const firstPrompt = `
+                You are a friendly, conversational AI assistant for our company. 
+                A user just gave us an NPS score of ${selectedScore} out of 10. 
+                Your job is to have a short, natural voice conversation to find out *why*.
+                
+                Start by asking them a single, open-ended follow-up question based on their score.
+                (e.g., "We're sorry to hear that. What was the main issue?" or "That's great! What did you like most?")
+                
+                After this, you will receive their audio. Transcribe it and continue the conversation.
+                If you have enough detail, end the conversation by saying "Thank you! That's all I need."
+                
+                When the conversation is over, the *very last line* of your response must be:
+                FINAL_FEEDBACK: {"sentiment": "...", "topics": ["...", "..."]}
+                
+                Start the conversation now.
+            `;
+            
+            try {
+                // Initialize the Live API session
+                aiLiveSession = model.startLive({
+                    history: [{ role: "user", parts: [{ text: firstPrompt }] }]
+                });
+
+                // Get the AI's first message
+                const response = await aiLiveSession.sendMessage("Go.");
+                updateLastAiMessage(response.text, true); // Update the "Thinking..." bubble
+                recordBtn.disabled = false;
+                recordStatus.innerText = "Click to speak";
+
+            } catch (err) {
+                console.error("AI Error:", err);
+                updateLastAiMessage("Error starting AI. Please refresh.", true);
+            }
+        }
+
+        recordBtn.onclick = async () => {
+            if (isRecording) {
+                // Stop recording
+                mediaRecorder.stop();
+                audioStream.getTracks().forEach(track => track.stop());
+                isRecording = false;
+                recordBtn.classList.remove("recording");
+                recordStatus.innerText = "Click to speak";
+            } else {
+                // Start recording
+                try {
+                    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
+
+                    mediaRecorder.ondataavailable = async (event) => {
+                        if (event.data.size > 0 && aiLiveSession) {
+                            const audioBytes = await event.data.arrayBuffer();
+                            // Send the small audio chunk to Gemini
+                            aiLiveSession.sendAudio(new Uint8Array(audioBytes));
+                        }
+                    };
+                    
+                    mediaRecorder.onstart = () => {
+                        // Create a temporary "thinking" bubble for the AI
+                        addMessageToChat("ai", "", false); 
+                        // Start the streaming
+                        startStreamingResponse();
+                    };
+
+                    // Send audio in small chunks (e.g., every 1 second)
+                    mediaRecorder.start(1000); 
+                    isRecording = true;
+                    recordBtn.classList.add("recording");
+                    recordStatus.innerText = "Recording... Click to stop";
+                } catch (err) {
+                    console.error("Media Error:", err);
+                    recordStatus.innerText = "Microphone error.";
+                }
+            }
+        };
+
+        async function startStreamingResponse() {
+            if (!aiLiveSession) return;
+            
+            let lastUserTranscription = "";
+            let lastAiResponse = "";
+
+            try {
+                // Listen for responses from the AI
+                for await (const chunk of aiLiveSession.stream) {
+                    const parts = chunk.content?.parts || [];
+                    for (const part of parts) {
+                        if (part.text) {
+                            // This is a new AI response, update the last "thinking" bubble
+                            lastAiResponse = part.text;
+                            updateLastAiMessage(lastAiResponse, false);
+
+                            // Check if this is the end of the conversation
+                            if (lastAiResponse.includes("FINAL_FEEDBACK:")) {
+                                endConversation(lastAiResponse);
+                                return;
+                            }
+                        }
+                        if (part.transcription) {
+                            // This is a transcription of the user's speech
+                            const { text, done } = part.transcription;
+                            if (done) {
+                                // User finished speaking this segment
+                                lastUserTranscription = text;
+                                // Create a *new* user message bubble
+                                addMessageToChat("user", lastUserTranscription, true);
+                                // Create a *new* AI "thinking" bubble
+                                addMessageToChat("ai", "", false);
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Streaming Error:", err);
+                updateLastAiMessage("Sorry, an error occurred.", true);
+            }
+        }
+        
+        function endConversation(text) {
+            // Clean up the final message
+            const finalMessage = text.split("FINAL_FEEDBACK:")[0].trim();
+            updateLastAiMessage(finalMessage, true); // Finalize the last AI bubble
+            
+            // Here you would parse the FINAL_FEEDBACK JSON and send it to your
+            // MongoDB backend. For the hackathon, we just go to the thank you.
+            chatUI.classList.add("hidden");
+            thankYouView.classList.remove("hidden");
+            
+            // Clean up
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+            }
+            if (audioStream) {
+                audioStream.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        // --- 3. Chat UI Helpers ---
+        function addMessageToChat(role, text, isFinal) {
+            const msg = document.createElement('div');
+            msg.className = `chat-message ${role}`;
+            if (!isFinal) {
+                msg.classList.add('thinking');
+            }
+            msg.innerText = text;
+            chatBox.appendChild(msg);
+            chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll
+        }
+
+        function updateLastAiMessage(text, isFinal) {
+            let lastMsg = chatBox.querySelector('.chat-message.ai:last-child');
+            if (!lastMsg || lastMsg.classList.contains('thinking') === false) {
+                // If there's no "thinking" bubble, create one
+                addMessageToChat("ai", text, isFinal);
+                lastMsg = chatBox.querySelector('.chat-message.ai:last-child');
+            }
+            
+            lastMsg.innerText = text;
+            if (isFinal) {
+                lastMsg.classList.remove('thinking');
+            }
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // --- Initialize ---
+        createNpsButtons();
+
+    </script>
+</body>
+</html>
