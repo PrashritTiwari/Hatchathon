@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-11-16T18:48:07.576719",
+  "score": 3,
+  "initial_feedback": {
+    "transcription": "",
+    "sentiment": "",
+    "feedback_points": []
+  },
+  "conversation_history": {
+    "initial_transcription": "",
+    "turns": []
+  },
+  "final_response": {
+    "transcription": "",
+    "ai_response": "",
+    "conversation_complete": true
+  },
+  "metadata": {
+    "total_turns": 0,
+    "completed_at": "2025-11-16T18:48:07.576724",
+    "no_followup_needed": true
+  }
+}

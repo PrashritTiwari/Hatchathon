@@ -1,0 +1,27 @@
+{
+  "score": 4,
+  "sentiment": "Negative",
+  "initial_transcription": "I didn't like his uh teaching materials. They were pretty vague.",
+  "initial_feedback_points": [
+    "Disliked teaching materials",
+    "Materials were vague"
+  ],
+  "turns": [
+    {
+      "ai": "Thank you for clarifying. Understanding that the materials were both vague and too complex for beginners is extremely helpful. We will review the course content immediately to ensure it is clearer and more appropriately paced. We appreciate you taking the time to provide this detailed feedback.",
+      "user": "They were too complex for us to understand. Uh, I expected the materials to be much more simpler, which can be easily understood by the beginners."
+    }
+  ],
+  "final_analysis": {
+    "transcription": "They were too complex for us to understand. Uh, I expected the materials to be much more simpler, which can be easily understood by the beginners.",
+    "conversationalResponse": "Thank you for clarifying. Understanding that the materials were both vague and too complex for beginners is extremely helpful. We will review the course content immediately to ensure it is clearer and more appropriately paced. We appreciate you taking the time to provide this detailed feedback.",
+    "requiresFollowUp": false,
+    "conversationComplete": true,
+    "score": 4
+  },
+  "metadata": {
+    "total_turns": 1,
+    "completed_at": "2025-11-17T01:24:36.141661Z"
+  },
+  "saved_at": "2025-11-17T01:24:36.141672Z"
+}

@@ -1,0 +1,26 @@
+{
+  "score": 6,
+  "initial_transcription": "[Audio message]",
+  "turns": [
+    {
+      "user": "Hmm, it was quite confusing.",
+      "ai": "Thank you for clarifying. Could you tell me what specific part of the experience felt confusing to you?"
+    },
+    {
+      "user": "The user manual itself.",
+      "ai": "That is very helpful context. Knowing the manual was the source of confusion helps us narrow down the issue. Could you tell us what specific section, feature, or element of the manual made it confusing to navigate or understand?"
+    },
+    {
+      "ai": "Thank you very much. Understanding that the assembly instructions led to complications is extremely helpful. We now know exactly which section of the manual needs attention. We appreciate you taking the time to clarify this for us.",
+      "user": "The way we assembled the product was quite confusing. There there was no clear there were no clear instruction around how we have to do that. I ended up messing up so many features."
+    }
+  ],
+  "final_analysis": {
+    "transcription": "The way we assembled the product was quite confusing. There there was no clear there were no clear instruction around how we have to do that. I ended up messing up so many features.",
+    "conversationalResponse": "Thank you very much. Understanding that the assembly instructions led to complications is extremely helpful. We now know exactly which section of the manual needs attention. We appreciate you taking the time to clarify this for us.",
+    "requiresFollowUp": false,
+    "conversationComplete": true,
+    "score": 6
+  },
+  "saved_at": "2025-11-17T01:10:46.139044Z"
+}
