@@ -205,6 +205,8 @@ function VoiceNPSChat() {
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
   const speechSynthesisRef = useRef(null);
+  const [displayedText, setDisplayedText] = useState("");
+  const typewriterTimeoutRef = useRef(null);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -213,6 +215,40 @@ function VoiceNPSChat() {
   };
 
   // Text-to-Speech function
+  // Typewriter effect with voice sync
+  const typewriterEffect = (text, onComplete) => {
+    if (!text || typeof text !== 'string') {
+      return;
+    }
+
+    // Clear any existing timeout
+    if (typewriterTimeoutRef.current) {
+      clearTimeout(typewriterTimeoutRef.current);
+    }
+
+    setDisplayedText("");
+    let currentIndex = 0;
+    const typingSpeed = 30; // milliseconds per character
+
+    const typeNextChar = () => {
+      if (currentIndex < text.length) {
+        setDisplayedText(text.slice(0, currentIndex + 1));
+        currentIndex++;
+        typewriterTimeoutRef.current = setTimeout(typeNextChar, typingSpeed);
+      } else {
+        if (onComplete) onComplete();
+      }
+    };
+
+    // Start typing immediately
+    typeNextChar();
+    
+    // Start speaking after a short delay (when first few chars are typed)
+    setTimeout(() => {
+      speakText(text);
+    }, typingSpeed * 3);
+  };
+
   const speakText = (text) => {
     // Stop any ongoing speech
     if (speechSynthesisRef.current) {
@@ -353,8 +389,24 @@ function VoiceNPSChat() {
       if (speechSynthesisRef.current) {
         window.speechSynthesis.cancel();
       }
+      // Stop typewriter effect
+      if (typewriterTimeoutRef.current) {
+        clearTimeout(typewriterTimeoutRef.current);
+      }
     };
   }, []);
+
+  // Trigger typewriter effect when currentResponse changes
+  useEffect(() => {
+    if (currentResponse?.conversationalResponse) {
+      const responseText = currentResponse.conversationalResponse;
+      // Only start typewriter if text is different from what's displayed
+      if (responseText !== displayedText || displayedText === "") {
+        typewriterEffect(responseText);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentResponse]);
 
   const startRecording = async () => {
     console.log("🎤 Start Recording clicked");
@@ -500,7 +552,7 @@ function VoiceNPSChat() {
 
       console.log("📤 Sending initial feedback to backend:", BACKEND_URL);
       console.log("📦 FormData contents - Score:", score, "Category:", businessCategory, "Has transcription:", !!transcriptionText, "Has audio:", !!audioBlob);
-      
+
       const res = await axios.post(`${BACKEND_URL}/submit_feedback`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
         timeout: 60000, // 60 second timeout for AI processing
@@ -525,8 +577,10 @@ function VoiceNPSChat() {
       setTranscription("");
       setTextInput("");
 
-      // Speak the AI response
-      speakText(botReply);
+      // Start typewriter effect with voice sync
+      if (botReply) {
+        typewriterEffect(botReply);
+      }
 
     } catch (err) {
       console.error("❌ Error submitting initial feedback:", err);
@@ -613,7 +667,7 @@ function VoiceNPSChat() {
 
       console.log("📤 Sending follow-up to backend:", BACKEND_URL);
       console.log("📦 Followup FormData - Score:", currentScore, "Category:", businessCategory, "Has transcription:", !!transcriptionText, "Has audio:", !!audioBlob);
-      
+
       const res = await axios.post(`${BACKEND_URL}/submit_followup`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
         timeout: 60000, // 60 second timeout for AI processing
@@ -636,8 +690,10 @@ function VoiceNPSChat() {
       setTranscription("");
       setTextInput("");
 
-      // Speak the AI response
-      speakText(botReply);
+      // Start typewriter effect with voice sync
+      if (botReply) {
+        typewriterEffect(botReply);
+      }
 
     } catch (err) {
       console.error("❌ Error sending follow-up:", err);
@@ -660,6 +716,13 @@ function VoiceNPSChat() {
 
   const stopConversation = async () => {
     console.log("🛑 Stopping conversation");
+    
+    // Stop typewriter effect
+    if (typewriterTimeoutRef.current) {
+      clearTimeout(typewriterTimeoutRef.current);
+      typewriterTimeoutRef.current = null;
+    }
+    setDisplayedText("");
     
     // Stop any ongoing speech
     if (speechSynthesisRef.current) {
@@ -955,24 +1018,50 @@ function VoiceNPSChat() {
               </motion.div>
             )}
 
-            {/* Follow-up Question */}
+            {/* AI Response Display - Moved Up */}
             <AnimatePresence>
-          {isFollowUp && currentResponse && requiresFollowUp && (
+              {(currentResponse?.conversationalResponse) && (
                 <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="followup-question"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="ai-response-container"
+                  style={{
+                    marginTop: "24px",
+                    marginBottom: "24px",
+                    padding: "24px",
+                    background: "rgba(255, 255, 255, 0.95)",
+                    borderRadius: "20px",
+                    border: "2px solid rgba(139, 92, 246, 0.2)",
+                    boxShadow: "0 8px 32px rgba(109, 40, 217, 0.1)"
+                  }}
                 >
-                  <div className="followup-content">
-                    <div className="followup-text-plain">
-                      <p className="followup-message-plain">
-                    {currentResponse.conversationalResponse}
-                  </p>
-                </div>
-              </div>
+                  <div className="ai-response-content">
+                    <p 
+                      className="ai-response-text"
+                      style={{
+                        fontSize: "1.1rem",
+                        lineHeight: "1.7",
+                        color: "#4c1d95",
+                        fontWeight: "500",
+                        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                        letterSpacing: "0.3px"
+                      }}
+                    >
+                      {displayedText || currentResponse.conversationalResponse}
+                      {displayedText && displayedText.length < (currentResponse.conversationalResponse?.length || 0) && (
+                        <motion.span
+                          animate={{ opacity: [1, 0] }}
+                          transition={{ repeat: Infinity, duration: 0.8 }}
+                          style={{ marginLeft: "2px" }}
+                        >
+                          |
+                        </motion.span>
+                      )}
+                    </p>
+                  </div>
                 </motion.div>
-          )}
+              )}
             </AnimatePresence>
 
             {/* Input Section */}
@@ -1220,7 +1309,7 @@ function VoiceNPSChat() {
                       type="button"
                       style={{ cursor: 'pointer', position: 'relative', zIndex: 1000 }}
                     >
-                      Start Recording
+                Start Recording
                     </motion.button>
                     <AnimatePresence>
                       {(conversationHistory.length > 0 || isRecording) && (
@@ -1352,29 +1441,36 @@ function VoiceNPSChat() {
               )}
             </AnimatePresence>
 
-          {/* Success Message */}
+          {/* Success Message - No green background */}
             <AnimatePresence>
           {currentResponse && !requiresFollowUp && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="success-message"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  style={{
+                    marginTop: "16px",
+                    padding: "16px",
+                    background: "rgba(255, 255, 255, 0.6)",
+                    borderRadius: "16px",
+                    border: "2px solid rgba(139, 92, 246, 0.15)",
+                    textAlign: "center"
+                  }}
                 >
-                  <p className="success-title">
-                    <motion.div
-                      animate={{ rotate: [0, 360], scale: [1, 1.2, 1] }}
-                      transition={{ duration: 0.5 }}
-                      className="success-icon"
-                    >
-                      <svg className="success-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M20 6L9 17l-5-5"></path>
-                      </svg>
-                    </motion.div>
-                    Conversation Complete!
+                  <p style={{ 
+                    fontSize: "0.9rem", 
+                    color: "#6d28d9", 
+                    fontWeight: "600",
+                    marginBottom: "8px"
+                  }}>
+                    ✓ Conversation Complete!
                   </p>
                   {currentResponse.saved_conversation_file && (
-                    <p className="success-detail">
+                    <p style={{ 
+                      fontSize: "0.75rem", 
+                      color: "#8b5cf6",
+                      marginTop: "4px"
+                    }}>
                       Saved to: {currentResponse.saved_conversation_file}
                     </p>
                   )}
@@ -1383,7 +1479,7 @@ function VoiceNPSChat() {
             </AnimatePresence>
           </motion.div>
 
-          </div>
+                </div>
       </div>
     </div>
   );

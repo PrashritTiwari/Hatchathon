@@ -28,15 +28,15 @@ import "./Dashboard.css";
 const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
 
-// Color constants - No yellowish colors in elements
+// Color constants - Warm colors
 const RATING_COLORS = {
-  High: "#10B981", // Green
+  High: "#22C55E", // Warm Green
   Medium: "#6366F1", // Blue
-  Low: "#EF4444", // Red
+  Low: "#F87171", // Warm Red
 };
 const SENTIMENT_COLORS = [
-  "#10B981", // Green
-  "#EF4444", // Red
+  "#22C55E", // Warm Green
+  "#F87171", // Warm Red
   "#6366F1", // Blue
   "#8B5CF6", // Purple
   "#EC4899", // Pink
@@ -435,9 +435,9 @@ function Dashboard() {
               <AreaChart data={trendData}>
                 <defs>
                   <linearGradient id="lineColor" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.7} />
+                    <stop offset="5%" stopColor="#22C55E" stopOpacity={0.7} />
                     <stop offset="50%" stopColor="#6366F1" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#F87171" stopOpacity={0.15} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.6} />
@@ -607,7 +607,12 @@ function PieSection({ title, data, colors }) {
 }
 
 function BarSection({ title, data, dataKey, nameKey }) {
-  const colors = ["#6366F1", "#10B981", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
+  const getBarColor = (value) => {
+    // If value is negative, use warm red
+    if (value < 0) return "#F87171"; // Warm red
+    // Otherwise use warm colors
+    return "#6366F1"; // Blue for positive
+  };
 
   return (
     <div className="chart-card">
@@ -619,7 +624,11 @@ function BarSection({ title, data, dataKey, nameKey }) {
             <XAxis dataKey={nameKey} stroke="#475569" fontSize={11} fontWeight="500" />
             <YAxis stroke="#475569" fontSize={11} fontWeight="500" />
             <Tooltip contentStyle={ttStyle} />
-            <Bar dataKey={dataKey} fill="#6366F1" radius={[8, 8, 0, 0]} />
+            <Bar dataKey={dataKey} radius={[8, 8, 0, 0]}>
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={getBarColor(entry[dataKey])} />
+              ))}
+            </Bar>
             </BarChart>
           </ResponsiveContainer>
       </div>
