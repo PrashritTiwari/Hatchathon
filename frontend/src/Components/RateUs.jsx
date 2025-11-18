@@ -707,7 +707,9 @@ function VoiceNPSChat() {
                       transition={{ repeat: Infinity, duration: 2 }}
                       className="followup-icon"
                     >
-                      💬
+                      <svg className="followup-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                      </svg>
                     </motion.div>
                     <div className="followup-text">
                       <span className="followup-badge">
@@ -839,12 +841,16 @@ function VoiceNPSChat() {
                     >
                       {loading ? (
                         <span className="loading-content">
-                          <motion.span
+                          <motion.div
                             animate={{ rotate: 360 }}
                             transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                            className="loading-spinner-icon"
                           >
-                            ⏳
-                          </motion.span>
+                            <svg className="loading-spinner-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" opacity="0.25"></circle>
+                              <path d="M12 2a10 10 0 0 1 10 10" opacity="0.75"></path>
+                            </svg>
+                          </motion.div>
                           Processing...
                         </span>
                       ) : (
@@ -881,12 +887,16 @@ function VoiceNPSChat() {
                     >
                       {loading ? (
                         <span className="loading-content">
-                          <motion.span
+                          <motion.div
                             animate={{ rotate: 360 }}
                             transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                            className="loading-spinner-icon"
                           >
-                            ⏳
-                          </motion.span>
+                            <svg className="loading-spinner-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" opacity="0.25"></circle>
+                              <path d="M12 2a10 10 0 0 1 10 10" opacity="0.75"></path>
+                            </svg>
+                          </motion.div>
                           Processing...
                         </span>
                       ) : (
@@ -912,12 +922,16 @@ function VoiceNPSChat() {
                     >
                       {loading ? (
                         <span className="loading-content">
-                          <motion.span
+                          <motion.div
                             animate={{ rotate: 360 }}
                             transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                            className="loading-spinner-icon"
                           >
-                            ⏳
-                          </motion.span>
+                            <svg className="loading-spinner-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" opacity="0.25"></circle>
+                              <path d="M12 2a10 10 0 0 1 10 10" opacity="0.75"></path>
+                            </svg>
+                          </motion.div>
                           Sending...
                         </span>
                       ) : (
@@ -1002,12 +1016,16 @@ function VoiceNPSChat() {
                     >
                       {loading ? (
                         <span className="loading-content">
-                          <motion.span
+                          <motion.div
                             animate={{ rotate: 360 }}
                             transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                            className="loading-spinner-icon"
                           >
-                            ⏳
-                          </motion.span>
+                            <svg className="loading-spinner-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" opacity="0.25"></circle>
+                              <path d="M12 2a10 10 0 0 1 10 10" opacity="0.75"></path>
+                            </svg>
+                          </motion.div>
                           Processing...
                         </span>
                       ) : (
@@ -1033,12 +1051,16 @@ function VoiceNPSChat() {
                     >
                       {loading ? (
                         <span className="loading-content">
-                          <motion.span
+                          <motion.div
                             animate={{ rotate: 360 }}
                             transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                            className="loading-spinner-icon"
                           >
-                            ⏳
-                          </motion.span>
+                            <svg className="loading-spinner-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" opacity="0.25"></circle>
+                              <path d="M12 2a10 10 0 0 1 10 10" opacity="0.75"></path>
+                            </svg>
+                          </motion.div>
                           Sending...
                         </span>
                       ) : (
@@ -1089,12 +1111,15 @@ function VoiceNPSChat() {
                   className="success-message"
                 >
                   <p className="success-title">
-                    <motion.span
-                      animate={{ rotate: [0, 360] }}
+                    <motion.div
+                      animate={{ rotate: [0, 360], scale: [1, 1.2, 1] }}
                       transition={{ duration: 0.5 }}
+                      className="success-icon"
                     >
-                      ✅
-                    </motion.span>
+                      <svg className="success-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M20 6L9 17l-5-5"></path>
+                      </svg>
+                    </motion.div>
                     Conversation Complete!
                   </p>
                   {currentResponse.saved_conversation_file && (
@@ -1117,7 +1142,9 @@ function VoiceNPSChat() {
                 className="history-card"
               >
                 <h2 className="history-title">
-                  <span className="history-icon">💭</span>
+                  <svg className="history-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                  </svg>
                   Conversation History
                 </h2>
                 <div className="history-list">
@@ -1197,10 +1224,21 @@ function VoiceNPSChat() {
                   <div className="response-item">
                     <span className="response-label">Status:</span>
                     <span className={`badge ${currentResponse.conversationComplete || !currentResponse.requiresFollowUp ? 'badge-success' : 'badge-warning'}`}>
-                  {currentResponse.conversationComplete || !currentResponse.requiresFollowUp
-                    ? '✅ Complete'
-                    : '💬 Needs Follow-up'
-                  }
+                  {currentResponse.conversationComplete || !currentResponse.requiresFollowUp ? (
+                    <span className="badge-content">
+                      <svg className="badge-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M20 6L9 17l-5-5"></path>
+                      </svg>
+                      Complete
+                    </span>
+                  ) : (
+                    <span className="badge-content">
+                      <svg className="badge-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                      </svg>
+                      Needs Follow-up
+                    </span>
+                  )}
                 </span>
               </div>
             </div>

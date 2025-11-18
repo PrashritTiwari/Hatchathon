@@ -1,127 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo, Suspense } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Stars } from "@react-three/drei";
 import { motion, AnimatePresence } from "framer-motion";
-import * as THREE from "three";
 import "./Dashboard.css";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
 
-// String with Sound Waves - Same as RateUs
-function SoundString({ position, segments = 50, waveSpeed = 1, waveAmplitude = 0.5, delay = 0 }) {
-  const lineRef = useRef();
-  const geometryRef = useRef();
-
-  useEffect(() => {
-    if (geometryRef.current) {
-      const positions = new Float32Array((segments + 1) * 3);
-      for (let i = 0; i <= segments; i++) {
-        positions[i * 3] = (i / segments) * 8 - 4;
-        positions[i * 3 + 1] = 0;
-        positions[i * 3 + 2] = 0;
-      }
-      geometryRef.current.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    }
-  }, [segments]);
-
-  useFrame((state) => {
-    if (lineRef.current && geometryRef.current) {
-      const time = state.clock.elapsedTime + delay;
-      const positions = geometryRef.current.attributes.position;
-      
-      for (let i = 0; i <= segments; i++) {
-        const x = (i / segments) * 12 - 6;
-        const wave1 = Math.sin(x * 2 + time * waveSpeed) * waveAmplitude;
-        const wave2 = Math.sin(x * 3 + time * waveSpeed * 1.5) * (waveAmplitude * 0.6);
-        const wave3 = Math.sin(x * 4 + time * waveSpeed * 0.8) * (waveAmplitude * 0.4);
-        const y = wave1 + wave2 + wave3;
-        
-        positions.setXYZ(i, x, y, 0);
-      }
-      
-      positions.needsUpdate = true;
-      lineRef.current.rotation.z = Math.sin(time * 0.2) * 0.1;
-    }
-  });
-
-  return (
-    <line ref={lineRef}>
-      <bufferGeometry ref={geometryRef} />
-      <lineBasicMaterial
-        color="#4c1d95"
-        transparent
-        opacity={0.5}
-        linewidth={5}
-      />
-    </line>
-  );
-}
-
-// Multiple Strings Group
-function StringCurtain({ position, stringCount = 15 }) {
-  const strings = useMemo(() => {
-    return Array.from({ length: stringCount }).map((_, i) => ({
-      z: (i - stringCount / 2) * 0.4,
-      waveSpeed: 0.5 + (i % 3) * 0.3,
-      waveAmplitude: 0.3 + (i % 2) * 0.2,
-      delay: i * 0.2,
-      color: new THREE.Color().lerpColors(
-        new THREE.Color("#4c1d95"),
-        new THREE.Color("#6d28d9"),
-        i / stringCount
-      ),
-    }));
-  }, [stringCount]);
-
-  return (
-    <group position={position}>
-      {strings.map((str, i) => (
-        <group key={i} position={[0, 0, str.z]}>
-          <SoundString
-            segments={80}
-            waveSpeed={str.waveSpeed}
-            waveAmplitude={str.waveAmplitude * 1.5}
-            delay={str.delay}
-          />
-        </group>
-      ))}
-    </group>
-  );
-}
-
-// Floating Particles
-function FloatingParticles({ count = 100 }) {
-  const particlesRef = useRef();
-  const positions = useMemo(() => {
-    return Array.from({ length: count }).map(() => [
-      (Math.random() - 0.5) * 20,
-      (Math.random() - 0.5) * 20,
-      (Math.random() - 0.5) * 20,
-    ]);
-  }, [count]);
-
-  useFrame((state) => {
-    if (particlesRef.current) {
-      particlesRef.current.rotation.y = state.clock.elapsedTime * 0.1;
-      particlesRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.05) * 0.1;
-    }
-  });
-
-  return (
-    <points ref={particlesRef}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={positions.length}
-          array={new Float32Array(positions.flat())}
-          itemSize={3}
-        />
-      </bufferGeometry>
-      <pointsMaterial color="#6d28d9" size={0.1} transparent opacity={0.6} />
-    </points>
-  );
-}
 
 function Dashboard() {
   const [data, setData] = useState(null);
@@ -270,16 +153,6 @@ function Dashboard() {
   if (loading) {
     return (
       <div className="dashboard-container">
-        <div className="animated-background"></div>
-        <div className="three-d-background">
-          <Canvas camera={{ position: [0, 0, 8], fov: 75 }}>
-            <Suspense fallback={null}>
-              <StringCurtain position={[0, 0, 0]} />
-              <FloatingParticles count={80} />
-              <Stars radius={300} depth={50} count={5000} factor={4} fade speed={1} />
-            </Suspense>
-          </Canvas>
-        </div>
         <div className="content-wrapper">
           <div className="content-inner">
             <div className="loading-screen">
@@ -306,16 +179,6 @@ function Dashboard() {
   if (error) {
     return (
       <div className="dashboard-container">
-        <div className="animated-background"></div>
-        <div className="three-d-background">
-          <Canvas camera={{ position: [0, 0, 8], fov: 75 }}>
-            <Suspense fallback={null}>
-              <StringCurtain position={[0, 0, 0]} />
-              <FloatingParticles count={80} />
-              <Stars radius={300} depth={50} count={5000} factor={4} fade speed={1} />
-            </Suspense>
-          </Canvas>
-        </div>
         <div className="content-wrapper">
           <div className="content-inner">
             <motion.div
@@ -323,7 +186,13 @@ function Dashboard() {
               animate={{ opacity: 1, scale: 1 }}
               className="error-card"
             >
-              <div className="error-icon">⚠️</div>
+              <div className="error-icon">
+                <svg className="error-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+              </div>
               <h2 className="error-title">Error Loading Dashboard</h2>
               <p className="error-message">{error}</p>
               <div className="error-actions">
@@ -332,8 +201,8 @@ function Dashboard() {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => applyPresetRange(timeframe)}
                   className="error-btn error-btn-primary"
-                >
-                  Retry
+          >
+            Retry
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -376,20 +245,9 @@ function Dashboard() {
 
   return (
     <div className="dashboard-container">
-      <div className="animated-background"></div>
-      <div className="three-d-background">
-        <Canvas camera={{ position: [0, 0, 8], fov: 75 }}>
-          <Suspense fallback={null}>
-            <StringCurtain position={[0, 0, 0]} />
-            <FloatingParticles count={80} />
-            <Stars radius={300} depth={50} count={5000} factor={4} fade speed={1} />
-          </Suspense>
-        </Canvas>
-      </div>
-
       <div className="content-wrapper">
         <div className="content-inner">
-          {/* Header */}
+        {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -397,7 +255,7 @@ function Dashboard() {
           >
             <div className="header-content">
               <div>
-                <h1 className="dashboard-title">📊 Analytics Dashboard</h1>
+                <h1 className="dashboard-title">Analytics Dashboard</h1>
                 <p className="dashboard-subtitle">
                   Customer feedback insights and trends
                   <span className="range-label"> ({appliedRangeLabel})</span>
@@ -421,7 +279,12 @@ function Dashboard() {
                     onClick={() => applyPresetRange(timeframe)}
                     className="refresh-btn"
                   >
-                    🔄 Refresh
+                    <svg className="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="23 4 23 10 17 10"></polyline>
+                      <polyline points="1 20 1 14 7 14"></polyline>
+                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    Refresh
                   </motion.button>
                 )}
               </div>
@@ -437,43 +300,43 @@ function Dashboard() {
                 <div className="custom-range-inputs">
                   <div className="date-input-group">
                     <label>Start date</label>
-                    <input
-                      type="date"
-                      value={customStart}
-                      onChange={(e) => setCustomStart(e.target.value)}
+                  <input
+                    type="date"
+                    value={customStart}
+                    onChange={(e) => setCustomStart(e.target.value)}
                       className="date-input"
-                    />
-                  </div>
+                  />
+                </div>
                   <div className="date-input-group">
                     <label>End date</label>
-                    <input
-                      type="date"
-                      value={customEnd}
-                      max={new Date().toISOString().split("T")[0]}
-                      onChange={(e) => setCustomEnd(e.target.value)}
+                  <input
+                    type="date"
+                    value={customEnd}
+                    max={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => setCustomEnd(e.target.value)}
                       className="date-input"
-                    />
-                  </div>
+                  />
+                </div>
                   <div className="date-input-actions">
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={handleApplyCustomRange}
+                    onClick={handleApplyCustomRange}
                       className="apply-btn"
-                    >
-                      Apply
+                  >
+                    Apply
                     </motion.button>
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => {
-                        setCustomStart("");
-                        setCustomEnd("");
+                    onClick={() => {
+                      setCustomStart("");
+                      setCustomEnd("");
                         setTimeframe("all");
-                      }}
+                    }}
                       className="reset-btn"
-                    >
-                      Reset
+                  >
+                    Reset
                     </motion.button>
                   </div>
                 </div>
@@ -481,7 +344,7 @@ function Dashboard() {
             )}
           </motion.div>
 
-          {/* Summary Cards */}
+        {/* Summary Cards */}
           <div className="summary-grid">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -490,14 +353,18 @@ function Dashboard() {
               className="summary-card summary-card-blue"
             >
               <div className="summary-card-content">
-                <div>
+              <div>
                   <p className="summary-label">Total Conversations</p>
                   <p className="summary-value">
                     {summary.total_conversations || 0}
-                  </p>
-                </div>
-                <div className="summary-icon">💬</div>
+                </p>
               </div>
+                <div className="summary-icon">
+                  <svg className="summary-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                  </svg>
+            </div>
+          </div>
             </motion.div>
 
             <motion.div
@@ -507,14 +374,18 @@ function Dashboard() {
               className="summary-card summary-card-green"
             >
               <div className="summary-card-content">
-                <div>
+              <div>
                   <p className="summary-label">Average Rating</p>
                   <p className="summary-value">{summary.avg_score || "N/A"}</p>
-                  {summary.median_score && (
+                {summary.median_score && (
                     <p className="summary-sublabel">Median: {summary.median_score}</p>
                   )}
                 </div>
-                <div className="summary-icon">⭐</div>
+                <div className="summary-icon">
+                  <svg className="summary-icon-svg" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                  </svg>
+                </div>
               </div>
             </motion.div>
 
@@ -531,8 +402,14 @@ function Dashboard() {
                     {npsScore}
                   </p>
                 </div>
-                <div className="summary-icon">📈</div>
-              </div>
+                <div className="summary-icon">
+                  <svg className="summary-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                  </svg>
+            </div>
+          </div>
             </motion.div>
 
             <motion.div
@@ -542,14 +419,20 @@ function Dashboard() {
               className="summary-card summary-card-orange"
             >
               <div className="summary-card-content">
-                <div>
+              <div>
                   <p className="summary-label">Avg Conversation Turns</p>
                   <p className="summary-value">{summary.avg_turns || 0}</p>
                   {summary.max_turns && (
                     <p className="summary-sublabel">Max: {summary.max_turns}</p>
                   )}
                 </div>
-                <div className="summary-icon">🔄</div>
+                <div className="summary-icon">
+                  <svg className="summary-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                  </svg>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -689,9 +572,9 @@ function Dashboard() {
                       <div className="trend-dot"></div>
                     </motion.div>
                   ))}
-                </div>
+          </div>
               )}
-            </div>
+        </div>
           </motion.div>
 
           {/* Top Feedback Themes */}
@@ -719,10 +602,10 @@ function Dashboard() {
                   </motion.div>
                 ))
               )}
-            </div>
+          </div>
           </motion.div>
 
-          {/* Conversations Table */}
+        {/* Conversations Table */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -732,7 +615,7 @@ function Dashboard() {
             <h2 className="chart-title">Recent Conversations</h2>
             <div className="table-container">
               <table className="conversations-table">
-                <thead>
+              <thead>
                   <tr>
                     <th>Date</th>
                     <th>Score</th>
@@ -740,70 +623,70 @@ function Dashboard() {
                     <th>Turns</th>
                     <th>Initial Feedback</th>
                     <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.conversations?.slice(0, 20).map((conv, idx) => (
+                </tr>
+              </thead>
+              <tbody>
+                {data.conversations?.slice(0, 20).map((conv, idx) => (
                     <motion.tr
-                      key={idx}
+                    key={idx}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.8 + idx * 0.05 }}
                       className="table-row"
                     >
                       <td>
-                        {conv.saved_at
-                          ? new Date(conv.saved_at).toLocaleDateString()
-                          : "N/A"}
-                      </td>
+                      {conv.saved_at
+                        ? new Date(conv.saved_at).toLocaleDateString()
+                        : "N/A"}
+                    </td>
                       <td>
-                        <span
+                      <span
                           className={`score-badge ${
-                            conv.score >= 9
+                          conv.score >= 9
                               ? "score-high"
-                              : conv.score >= 7
+                            : conv.score >= 7
                               ? "score-medium"
                               : "score-low"
-                          }`}
-                        >
-                          {conv.score || "N/A"}
-                        </span>
-                      </td>
+                        }`}
+                      >
+                        {conv.score || "N/A"}
+                      </span>
+                    </td>
                       <td>
-                        <span
+                      <span
                           className={`sentiment-badge sentiment-${conv.sentiment || "Unknown"}`}
                           style={{
                             backgroundColor:
                               sentimentColors[conv.sentiment || "Unknown"] || "#94A3B8",
                           }}
-                        >
-                          {conv.sentiment || "Unknown"}
-                        </span>
-                      </td>
+                      >
+                        {conv.sentiment || "Unknown"}
+                      </span>
+                    </td>
                       <td>{conv.total_turns || 0}</td>
                       <td className="table-feedback">
-                        {conv.initial_transcription || "N/A"}
-                      </td>
+                      {conv.initial_transcription || "N/A"}
+                    </td>
                       <td>
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          onClick={() => setSelectedConversation(conv)}
+                        onClick={() => setSelectedConversation(conv)}
                           className="view-btn"
-                        >
-                          View
+                      >
+                        View
                         </motion.button>
-                      </td>
+                    </td>
                     </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
             </div>
           </motion.div>
+          </div>
         </div>
-      </div>
 
-      {/* Conversation Detail Modal */}
+        {/* Conversation Detail Modal */}
       <AnimatePresence>
         {selectedConversation && (
           <motion.div
