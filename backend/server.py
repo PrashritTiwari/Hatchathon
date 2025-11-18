@@ -339,6 +339,156 @@ async def health():
     return {"status": "ok", "time": datetime.utcnow().isoformat() + "Z"}
 
 
+TOP_FOCUS_PROMPT = """You are a customer feedback analyst. Analyze the negative and frustrated customer feedback provided below and identify the TOP 3 most important things the company should focus on to improve customer satisfaction and address these issues.
+
+**Note:** All feedback below is from customers with negative or frustrated sentiment. Focus on actionable improvements.
+
+Consider:
+- Frequency of mentions
+- Severity/impact on customer experience
+- Actionability
+- Urgency of addressing the issue
+
+**All Negative/Frustrated Customer Feedback:**
+
+{ALL_FEEDBACK}
+
+**Instructions:**
+1. Analyze all the negative/frustrated feedback above
+2. Identify the 3 most critical areas that need immediate attention to address customer dissatisfaction
+3. For each area, provide:
+   - A clear, actionable focus area title (e.g., "Improve Response Time", "Enhance Product Quality", "Fix Billing Issues")
+   - A brief explanation (1-2 sentences) of why this is important based on the negative feedback and how addressing it will improve customer satisfaction
+
+**Respond ONLY with a valid JSON object in this exact format:**
+{{
+  "top_focus_areas": [
+    {{
+      "title": "...",
+      "explanation": "..."
+    }},
+    {{
+      "title": "...",
+      "explanation": "..."
+    }},
+    {{
+      "title": "...",
+      "explanation": "..."
+    }}
+  ]
+}}"""
+
+
+@app.get("/analytics/top-focus-areas")
+async def top_focus_areas(
+    start_date: Optional[str] = Query(None, description="ISO date or datetime (inclusive)"),
+    end_date: Optional[str] = Query(None, description="ISO date or datetime (inclusive)"),
+):
+    """
+    Returns the top 3 things to focus on based on negative/frustrated customer feedback, analyzed by Gemini AI.
+    Only analyzes feedback from conversations with negative or frustrated sentiment.
+    """
+    records = load_conversation_records(CONVERSATIONS_DIR)
+    if not records:
+        raise HTTPException(status_code=404, detail="No saved conversations found")
+
+    filtered_records = filter_records_by_date(records, start_date, end_date) if (start_date or end_date) else records
+
+    if not filtered_records:
+        raise HTTPException(status_code=404, detail="No conversations found for the selected timeframe")
+
+    # Filter to only include negative or frustrated sentiment
+    negative_sentiments = ["negative", "frustrated", "angry", "disappointed", "unhappy"]
+    negative_records = [
+        record for record in filtered_records
+        if record.get("sentiment") and record.get("sentiment").lower() in [s.lower() for s in negative_sentiments]
+    ]
+
+    if not negative_records:
+        raise HTTPException(
+            status_code=404, 
+            detail="No negative or frustrated feedback found in the selected timeframe. Focus areas are only generated from negative feedback."
+        )
+
+    # Collect all feedback from negative/frustrated conversations only
+    all_feedback_text = []
+    for record in negative_records:
+        # Add initial transcription
+        if record.get("initial_transcription"):
+            all_feedback_text.append(f"Initial feedback: {record['initial_transcription']}")
+        
+        # Add initial feedback points
+        feedback_points = record.get("initial_feedback_points", [])
+        if feedback_points:
+            for point in feedback_points:
+                if point:
+                    all_feedback_text.append(f"Feedback point: {point}")
+        
+        # Add final transcription if different
+        if record.get("final_transcription") and record.get("final_transcription") != record.get("initial_transcription"):
+            all_feedback_text.append(f"Follow-up feedback: {record['final_transcription']}")
+        
+        # Add conversation turns
+        # Note: turns are stored in the full conversation file, not in the record summary
+        # We'll need to load the full files to get turns
+        filename = record.get("filename")
+        if filename:
+            try:
+                path = os.path.join(CONVERSATIONS_DIR, filename)
+                with open(path, "r", encoding="utf-8") as f:
+                    full_data = json.load(f)
+                    turns = full_data.get("turns", [])
+                    for turn in turns:
+                        user_text = turn.get("user", "")
+                        if user_text:
+                            all_feedback_text.append(f"User said: {user_text}")
+            except Exception as e:
+                print(f"Warning: Could not load full conversation file {filename}: {e}")
+
+    if not all_feedback_text:
+        raise HTTPException(status_code=404, detail="No feedback text found in conversations")
+
+    # Combine all feedback into a single text
+    combined_feedback = "\n\n".join(all_feedback_text)
+
+    # Send to Gemini
+    try:
+        model = genai.GenerativeModel(model_name="gemini-2.5-flash-preview-09-2025", generation_config=generation_config)
+        prompt = TOP_FOCUS_PROMPT.format(ALL_FEEDBACK=combined_feedback)
+        response = await model.generate_content_async(prompt)
+        
+        text = getattr(response, "text", None) or getattr(response, "content", None) or str(response)
+        print("Raw Gemini response for top focus areas (truncated):", text[:800])
+        
+        parsed = extract_json_from_text(text)
+        
+        # Validate structure
+        if "top_focus_areas" not in parsed or not isinstance(parsed["top_focus_areas"], list):
+            raise HTTPException(status_code=500, detail="Invalid response format from AI model")
+        
+        # Ensure we have exactly 3 items (or pad/truncate)
+        focus_areas = parsed["top_focus_areas"][:3]
+        while len(focus_areas) < 3:
+            focus_areas.append({
+                "title": "Insufficient feedback data",
+                "explanation": "Not enough feedback available to identify this focus area."
+            })
+        
+        return {
+            "top_focus_areas": focus_areas,
+            "total_feedback_items": len(all_feedback_text),
+            "total_conversations": len(negative_records),
+            "total_negative_conversations": len(negative_records),
+            "total_conversations_analyzed": len(filtered_records),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("Error calling Gemini for top focus areas:", e)
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to analyze feedback: {str(e)}")
+
+
 @app.get("/analytics/summary")
 async def analytics_summary(
     start_date: Optional[str] = Query(None, description="ISO date or datetime (inclusive)"),
