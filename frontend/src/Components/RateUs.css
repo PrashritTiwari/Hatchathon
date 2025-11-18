@@ -341,46 +341,38 @@
 /* Follow-up Question */
 .followup-question {
   margin-bottom: 32px;
-  padding: 28px;
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fcd34d 100%);
-  border-left: 6px solid #f59e0b;
-  border-radius: 20px;
-  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.25);
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .followup-content {
   display: flex;
   align-items: flex-start;
-  gap: 20px;
+  gap: 0;
 }
 
 .followup-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  color: #f59e0b;
+  display: none;
 }
 
 .followup-icon-svg {
-  width: 32px;
-  height: 32px;
+  display: none;
 }
 
 .followup-text {
   flex: 1;
 }
 
+.followup-text-plain {
+  flex: 1;
+  width: 100%;
+}
+
 .followup-badge {
-  display: inline-block;
-  font-size: 0.85rem;
-  font-weight: 800;
-  color: #92400e;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 12px;
+  display: none;
 }
 
 .followup-message {
@@ -388,6 +380,18 @@
   font-weight: 700;
   font-size: 1.1rem;
   line-height: 1.6;
+}
+
+.followup-message-plain {
+  color: #1f2937;
+  font-weight: 400;
+  font-size: 1.1rem;
+  line-height: 1.7;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  display: block;
 }
 
 /* Input Section */

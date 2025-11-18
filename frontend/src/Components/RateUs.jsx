@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, Suspense } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars } from "@react-three/drei";
@@ -183,6 +184,10 @@ function Scene3D() {
 }
 
 function VoiceNPSChat() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const businessCategory = searchParams.get("category") || "";
+  
   const [score, setScore] = useState(null);
   const [transcription, setTranscription] = useState("");
   const [conversationHistory, setConversationHistory] = useState([]);
@@ -199,6 +204,7 @@ function VoiceNPSChat() {
   const streamRef = useRef(null);
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
+  const speechSynthesisRef = useRef(null);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -206,19 +212,108 @@ function VoiceNPSChat() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Text-to-Speech function
+  const speakText = (text) => {
+    // Stop any ongoing speech
+    if (speechSynthesisRef.current) {
+      window.speechSynthesis.cancel();
+    }
+
+    if (!text || typeof text !== 'string') {
+      console.warn("No valid text to speak");
+      return;
+    }
+
+    try {
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Configure voice settings for natural speech
+      utterance.rate = 1.0; // Normal speed
+      utterance.pitch = 1.0; // Normal pitch
+      utterance.volume = 1.0; // Full volume
+      utterance.lang = 'en-US';
+
+      // Try to use a more natural voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoices = voices.filter(voice => 
+        voice.lang.startsWith('en') && 
+        (voice.name.includes('Samantha') || 
+         voice.name.includes('Alex') || 
+         voice.name.includes('Victoria') ||
+         voice.name.includes('Google') ||
+         voice.name.includes('Natural'))
+      );
+      
+      if (preferredVoices.length > 0) {
+        utterance.voice = preferredVoices[0];
+      } else if (voices.length > 0) {
+        // Fallback to first English voice
+        const englishVoice = voices.find(voice => voice.lang.startsWith('en'));
+        if (englishVoice) {
+          utterance.voice = englishVoice;
+        }
+      }
+
+      // Event handlers
+      utterance.onstart = () => {
+        console.log("🔊 Speaking:", text);
+        speechSynthesisRef.current = utterance;
+      };
+
+      utterance.onend = () => {
+        console.log("✅ Finished speaking");
+        speechSynthesisRef.current = null;
+      };
+
+      utterance.onerror = (event) => {
+        console.error("❌ Speech synthesis error:", event);
+        speechSynthesisRef.current = null;
+      };
+
+      // Load voices if not already loaded (some browsers need this)
+      if (voices.length === 0) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          const updatedVoices = window.speechSynthesis.getVoices();
+          const preferred = updatedVoices.filter(voice => 
+            voice.lang.startsWith('en') && 
+            (voice.name.includes('Samantha') || voice.name.includes('Alex'))
+          );
+          if (preferred.length > 0) {
+            utterance.voice = preferred[0];
+          }
+          window.speechSynthesis.speak(utterance);
+        };
+      } else {
+        window.speechSynthesis.speak(utterance);
+      }
+    } catch (error) {
+      console.error("Error with text-to-speech:", error);
+    }
+  };
+
   useEffect(() => {
     // Check backend connection on mount
     const checkBackendConnection = async () => {
       try {
-        const response = await axios.get(`${BACKEND_URL}/health`);
+        const response = await axios.get(`${BACKEND_URL}/health`, { timeout: 5000 });
         console.log("✅ Backend connected:", response.data);
+        console.log("🌐 Backend URL:", BACKEND_URL);
       } catch (err) {
-        console.warn("⚠️ Backend not reachable at", BACKEND_URL);
-        console.warn("Make sure backend server is running on http://127.0.0.1:8000");
+        console.error("❌ Backend not reachable at", BACKEND_URL);
+        console.error("Error details:", err.message);
+        console.warn("Make sure backend server is running: python backend/server.py");
+        setError(`Cannot connect to backend at ${BACKEND_URL}. Please ensure the backend server is running.`);
       }
     };
     
     checkBackendConnection();
+    
+    // Log business category
+    if (businessCategory) {
+      console.log("🏢 Business category from URL:", businessCategory);
+    } else {
+      console.warn("⚠️ No business category found in URL params");
+    }
 
     return () => {
       if (streamRef.current) {
@@ -229,6 +324,10 @@ function VoiceNPSChat() {
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
+      }
+      // Stop any ongoing speech when component unmounts
+      if (speechSynthesisRef.current) {
+        window.speechSynthesis.cancel();
       }
     };
   }, []);
@@ -361,6 +460,13 @@ function VoiceNPSChat() {
         formData.append("audio_data", audioBlob, "initial.webm");
       }
 
+      if (businessCategory) {
+        formData.append("business_category", businessCategory);
+        console.log("📤 Sending with business category:", businessCategory);
+      } else {
+        console.log("⚠️ No business category in URL");
+      }
+
       // Ensure at least one is provided
       if (!transcriptionText && !audioBlob) {
         setError("Please provide either text feedback or record audio");
@@ -369,8 +475,11 @@ function VoiceNPSChat() {
       }
 
       console.log("📤 Sending initial feedback to backend:", BACKEND_URL);
+      console.log("📦 FormData contents - Score:", score, "Category:", businessCategory, "Has transcription:", !!transcriptionText, "Has audio:", !!audioBlob);
+      
       const res = await axios.post(`${BACKEND_URL}/submit_feedback`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        timeout: 60000, // 60 second timeout for AI processing
       });
 
       console.log("✅ Received response from backend:", res.data);
@@ -392,17 +501,22 @@ function VoiceNPSChat() {
       setTranscription("");
       setTextInput("");
 
+      // Speak the AI response
+      speakText(botReply);
+
     } catch (err) {
       console.error("❌ Error submitting initial feedback:", err);
-      console.error("Error details:", err.response?.data);
-      if (err.response?.status === 400) {
+      console.error("Error details:", err.response?.data || err.message);
+      if (err.code === 'ECONNREFUSED' || err.message?.includes('Network Error') || err.message?.includes('Failed to fetch')) {
+        setError(`❌ Cannot connect to backend at ${BACKEND_URL}. Please make sure the backend server is running: python backend/server.py`);
+      } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        setError(`⏱️ Request timed out. The AI is taking too long to respond. Please try again.`);
+      } else if (err.response?.status === 400) {
         setError(err.response?.data?.detail || "Invalid request. Please check your input.");
       } else if (err.response?.status === 500) {
-        setError(err.response?.data?.detail || "Server error. Please try again.");
-      } else if (err.code === 'ECONNREFUSED' || err.message?.includes('Network Error')) {
-        setError(`Cannot connect to backend at ${BACKEND_URL}. Make sure the backend server is running.`);
+        setError(err.response?.data?.detail || "Server error. Please check backend logs and try again.");
       } else {
-        setError(err.response?.data?.detail || err.message || "Error submitting initial feedback");
+        setError(err.response?.data?.detail || err.message || "Error submitting feedback. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -459,6 +573,13 @@ function VoiceNPSChat() {
         formData.append("audio_data", audioBlob, "followup.webm");
       }
 
+      if (businessCategory) {
+        formData.append("business_category", businessCategory);
+        console.log("📤 Sending followup with business category:", businessCategory);
+      } else {
+        console.log("⚠️ No business category in URL for followup");
+      }
+
       // Ensure at least one is provided
       if (!transcriptionText && !audioBlob) {
         setError("Please provide either text feedback or record audio");
@@ -467,8 +588,11 @@ function VoiceNPSChat() {
       }
 
       console.log("📤 Sending follow-up to backend:", BACKEND_URL);
+      console.log("📦 Followup FormData - Score:", currentScore, "Category:", businessCategory, "Has transcription:", !!transcriptionText, "Has audio:", !!audioBlob);
+      
       const res = await axios.post(`${BACKEND_URL}/submit_followup`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        timeout: 60000, // 60 second timeout for AI processing
       });
 
       console.log("✅ Received follow-up response from backend:", res.data);
@@ -488,17 +612,22 @@ function VoiceNPSChat() {
       setTranscription("");
       setTextInput("");
 
+      // Speak the AI response
+      speakText(botReply);
+
     } catch (err) {
       console.error("❌ Error sending follow-up:", err);
-      console.error("Error details:", err.response?.data);
-      if (err.response?.status === 400) {
+      console.error("Error details:", err.response?.data || err.message);
+      if (err.code === 'ECONNREFUSED' || err.message?.includes('Network Error') || err.message?.includes('Failed to fetch')) {
+        setError(`❌ Cannot connect to backend at ${BACKEND_URL}. Please make sure the backend server is running: python backend/server.py`);
+      } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        setError(`⏱️ Request timed out. The AI is taking too long to respond. Please try again.`);
+      } else if (err.response?.status === 400) {
         setError(err.response?.data?.detail || "Invalid request. Please check your input.");
       } else if (err.response?.status === 500) {
-        setError(err.response?.data?.detail || "Server error. Please try again.");
-      } else if (err.code === 'ECONNREFUSED' || err.message?.includes('Network Error')) {
-        setError(`Cannot connect to backend at ${BACKEND_URL}. Make sure the backend server is running.`);
+        setError(err.response?.data?.detail || "Server error. Please check backend logs and try again.");
       } else {
-        setError(err.response?.data?.detail || err.message || "Error sending follow-up");
+        setError(err.response?.data?.detail || err.message || "Error sending follow-up. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -507,6 +636,12 @@ function VoiceNPSChat() {
 
   const stopConversation = async () => {
     console.log("🛑 Stopping conversation");
+    
+    // Stop any ongoing speech
+    if (speechSynthesisRef.current) {
+      window.speechSynthesis.cancel();
+      speechSynthesisRef.current = null;
+    }
     
     // Stop recognition if active
     if (recognitionRef.current) {
@@ -584,6 +719,89 @@ function VoiceNPSChat() {
             transition={{ duration: 0.8 }}
             className="header-section"
           >
+            {/* Navigation Buttons */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              style={{
+                display: "flex",
+                gap: "12px",
+                justifyContent: "center",
+                marginBottom: "20px",
+                flexWrap: "wrap"
+              }}
+            >
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate('/')}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: "12px",
+                  border: "2px solid rgba(59, 130, 246, 0.3)",
+                  background: "rgba(255, 255, 255, 0.1)",
+                  backdropFilter: "blur(10px)",
+                  color: "#3B82F6",
+                  fontWeight: "600",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(59, 130, 246, 0.2)";
+                  e.currentTarget.style.borderColor = "rgba(59, 130, 246, 0.5)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+                  e.currentTarget.style.borderColor = "rgba(59, 130, 246, 0.3)";
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                  <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                Home
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate('/dashboard')}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: "12px",
+                  border: "2px solid rgba(139, 92, 246, 0.3)",
+                  background: "rgba(255, 255, 255, 0.1)",
+                  backdropFilter: "blur(10px)",
+                  color: "#8B5CF6",
+                  fontWeight: "600",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(139, 92, 246, 0.2)";
+                  e.currentTarget.style.borderColor = "rgba(139, 92, 246, 0.5)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+                  e.currentTarget.style.borderColor = "rgba(139, 92, 246, 0.3)";
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 3v18h18"></path>
+                  <path d="M18 7L9 16l-4-4"></path>
+                </svg>
+                Dashboard
+              </motion.button>
+            </motion.div>
+            
             <motion.h1
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
@@ -592,6 +810,27 @@ function VoiceNPSChat() {
             >
             Voice NPS Feedback
             </motion.h1>
+            {businessCategory && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35 }}
+                style={{
+                  display: "inline-block",
+                  marginTop: "8px",
+                  padding: "6px 16px",
+                  borderRadius: "20px",
+                  background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                  color: "white",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  textTransform: "capitalize",
+                  boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)"
+                }}
+              >
+                {businessCategory === "medical" ? "Medical" : businessCategory === "ecommerce" ? "E-commerce" : businessCategory === "restaurant" ? "Restaurant" : businessCategory}
+              </motion.div>
+            )}
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -702,20 +941,8 @@ function VoiceNPSChat() {
                   className="followup-question"
                 >
                   <div className="followup-content">
-                    <motion.div
-                      animate={{ rotate: [0, 10, -10, 0] }}
-                      transition={{ repeat: Infinity, duration: 2 }}
-                      className="followup-icon"
-                    >
-                      <svg className="followup-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                      </svg>
-                    </motion.div>
-                    <div className="followup-text">
-                      <span className="followup-badge">
-                      Follow-up Question #{conversationHistory.filter(x => x.type === "followup").length + 1}
-                    </span>
-                      <p className="followup-message">
+                    <div className="followup-text-plain">
+                      <p className="followup-message-plain">
                     {currentResponse.conversationalResponse}
                   </p>
                 </div>
@@ -1132,119 +1359,6 @@ function VoiceNPSChat() {
             </AnimatePresence>
           </motion.div>
 
-        {/* Conversation History */}
-          <AnimatePresence>
-        {conversationHistory.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 50 }}
-                className="history-card"
-              >
-                <h2 className="history-title">
-                  <svg className="history-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                  </svg>
-                  Conversation History
-                </h2>
-                <div className="history-list">
-              {conversationHistory.map((msg, idx) => (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.1 }}
-                      className="history-item"
-                    >
-                  {msg.type === "initial" && (
-                        <div className="history-badges">
-                          <span className="badge badge-primary">
-                        Initial Feedback • Score: {msg.score}/10
-                      </span>
-                      {msg.sentiment && (
-                            <span className={`badge ${msg.sentiment.toLowerCase().includes('positive') ? 'badge-success' : msg.sentiment.toLowerCase().includes('negative') ? 'badge-error' : 'badge-neutral'}`}>
-                          {msg.sentiment}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {msg.type === "followup" && (
-                        <span className="badge badge-followup">
-                      Follow-up #{conversationHistory.filter((x, i) => i < idx && x.type === "followup").length + 1}
-                    </span>
-                  )}
-                  
-                      <div className="history-messages">
-                        <div className="message-item">
-                          <span className="message-label message-user">You:</span>
-                          <p className="message-text">{msg.transcription}</p>
-                    </div>
-                        <div className="message-item gemini-response">
-                          <span className="message-label message-ai">Gemini AI:</span>
-                          <p className="message-text message-ai-text gemini-response-text">{msg.aiResponse}</p>
-                    </div>
-                  </div>
-
-                  {msg.feedback && msg.feedback.length > 0 && (
-                        <div className="feedback-section">
-                          <p className="feedback-title">Key Points:</p>
-                          <ul className="feedback-list">
-                        {msg.feedback.map((point, i) => (
-                              <li key={i} className="feedback-item">{point}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                    </motion.div>
-              ))}
-            </div>
-              </motion.div>
-        )}
-          </AnimatePresence>
-
-        {/* Current Response Details */}
-          <AnimatePresence>
-        {currentResponse && (
-              <motion.div
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 50 }}
-                className="response-card"
-              >
-                <h3 className="response-title">Latest Response</h3>
-                <div className="response-details">
-              {currentResponse.sentiment && (
-                    <div className="response-item">
-                      <span className="response-label">Sentiment:</span>
-                      <span className={`badge ${currentResponse.sentiment.toLowerCase().includes('positive') ? 'badge-success' : currentResponse.sentiment.toLowerCase().includes('negative') ? 'badge-error' : 'badge-neutral'}`}>
-                    {currentResponse.sentiment}
-                  </span>
-                </div>
-              )}
-                  <div className="response-item">
-                    <span className="response-label">Status:</span>
-                    <span className={`badge ${currentResponse.conversationComplete || !currentResponse.requiresFollowUp ? 'badge-success' : 'badge-warning'}`}>
-                  {currentResponse.conversationComplete || !currentResponse.requiresFollowUp ? (
-                    <span className="badge-content">
-                      <svg className="badge-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M20 6L9 17l-5-5"></path>
-                      </svg>
-                      Complete
-                    </span>
-                  ) : (
-                    <span className="badge-content">
-                      <svg className="badge-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                      </svg>
-                      Needs Follow-up
-                    </span>
-                  )}
-                </span>
-              </div>
-            </div>
-              </motion.div>
-        )}
-          </AnimatePresence>
           </div>
       </div>
     </div>

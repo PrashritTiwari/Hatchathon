@@ -1,8 +1,21 @@
 import "./Body.css";
+import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faMicrophone, faArrowRight, faStar, faChartBar, faComments, faChartLine, faClock, faShield, faUsers, faBrain, faCheckCircle, faGlobe, faRocket, faBuilding } from "@fortawesome/free-solid-svg-icons";
+import { faMicrophone, faArrowRight, faStar, faChartBar, faComments, faChartLine, faClock, faShield, faUsers, faBrain, faCheckCircle, faGlobe, faRocket, faBuilding, faHospital, faStore, faUtensils } from "@fortawesome/free-solid-svg-icons";
 
 export default function Body(){
+    const navigate = useNavigate();
+    
+    const businessCategories = [
+        { id: "medical", name: "Medical", icon: faHospital, description: "Healthcare & Medical Services", color: "#10B981" },
+        { id: "ecommerce", name: "E-commerce", icon: faStore, description: "Online Shopping & Retail", color: "#3B82F6" },
+        { id: "restaurant", name: "Restaurant", icon: faUtensils, description: "Food & Hospitality", color: "#F59E0B" }
+    ];
+
+    const handleCategoryClick = (categoryId) => {
+        navigate(`/feedback?category=${categoryId}`);
+    };
+
     const features = [
         { icon: faMicrophone, title: "Natural Conversation", desc: "Speak naturally and let our AI understand your feedback in real-time." },
         { icon: faChartBar, title: "Real-Time Analysis", desc: "Get instant insights from voice feedback with advanced sentiment analysis." },
@@ -13,10 +26,10 @@ export default function Body(){
     ];
 
     const stats = [
-        { value: "$2.5B+", label: "Market Potential", icon: faChartLine },
-        { value: "500M+", label: "Potential Users", icon: faUsers },
-        { value: "95%", label: "Time Saved", icon: faClock },
-        { value: "100+", label: "Industries", icon: faBuilding }
+        { value: "3+", label: "Business Categories", icon: faBuilding },
+        { value: "AI-Powered", label: "Voice Analysis", icon: faMicrophone },
+        { value: "Real-Time", label: "Feedback Processing", icon: faClock },
+        { value: "100%", label: "Free to Use", icon: faStar }
     ];
 
     const testimonials = [
@@ -65,50 +78,23 @@ export default function Body(){
                             Collect, analyze, and understand customer experiences like never before.
                         </p>
                         <div className="hero-actions">
-                            <button className="btn-primary-action">
+                            <button 
+                                className="btn-primary-action"
+                                onClick={() => {
+                                    const element = document.getElementById('popular-business-categories');
+                                    if (element) {
+                                        element.scrollIntoView({ behavior: 'smooth' });
+                                    }
+                                }}
+                            >
                                 <div className="btn-icon-wrapper">
                                     <FontAwesomeIcon icon={faArrowRight} className="btn-icon" />
                                 </div>
                                 <span className="btn-text">Get Started</span>
                                 <div className="btn-shine"></div>
                             </button>
-                            <button className="btn-secondary-action">
-                                <span className="btn-text">Explore Features</span>
-                                <div className="btn-icon-wrapper-secondary">
-                                    <FontAwesomeIcon icon={faArrowRight} className="arrow-icon" />
-                                </div>
-                                <div className="btn-border-animation"></div>
-                            </button>
                         </div>
                         <div className="hero-stats-mini">
-                            <div className="stat-mini">
-                                <div className="stat-mini-icon-wrapper">
-                                    <div className="stat-mini-icon-bg"></div>
-                                    <FontAwesomeIcon icon={faChartLine} className="stat-mini-icon" />
-                                </div>
-                                <div className="stat-mini-content">
-                                    <div className="stat-mini-value">
-                                        <span className="stat-number">$2.5B</span>
-                                        <span className="stat-plus">+</span>
-                                    </div>
-                                    <div className="stat-mini-label">Market Potential</div>
-                                </div>
-                                <div className="stat-glow"></div>
-                            </div>
-                            <div className="stat-mini">
-                                <div className="stat-mini-icon-wrapper">
-                                    <div className="stat-mini-icon-bg"></div>
-                                    <FontAwesomeIcon icon={faRocket} className="stat-mini-icon" />
-                                </div>
-                                <div className="stat-mini-content">
-                                    <div className="stat-mini-value">
-                                        <span className="stat-number">500M</span>
-                                        <span className="stat-plus">+</span>
-                                    </div>
-                                    <div className="stat-mini-label">Scalable Market</div>
-                                </div>
-                                <div className="stat-glow"></div>
-                            </div>
                             <div className="stat-mini">
                                 <div className="stat-mini-icon-wrapper">
                                     <div className="stat-mini-icon-bg"></div>
@@ -116,10 +102,36 @@ export default function Body(){
                                 </div>
                                 <div className="stat-mini-content">
                                     <div className="stat-mini-value">
-                                        <span className="stat-number">100</span>
+                                        <span className="stat-number">3</span>
                                         <span className="stat-plus">+</span>
                                     </div>
-                                    <div className="stat-mini-label">Industries</div>
+                                    <div className="stat-mini-label">Categories</div>
+                                </div>
+                                <div className="stat-glow"></div>
+                            </div>
+                            <div className="stat-mini">
+                                <div className="stat-mini-icon-wrapper">
+                                    <div className="stat-mini-icon-bg"></div>
+                                    <FontAwesomeIcon icon={faMicrophone} className="stat-mini-icon" />
+                                </div>
+                                <div className="stat-mini-content">
+                                    <div className="stat-mini-value">
+                                        <span className="stat-number">AI</span>
+                                    </div>
+                                    <div className="stat-mini-label">Powered</div>
+                                </div>
+                                <div className="stat-glow"></div>
+                            </div>
+                            <div className="stat-mini">
+                                <div className="stat-mini-icon-wrapper">
+                                    <div className="stat-mini-icon-bg"></div>
+                                    <FontAwesomeIcon icon={faClock} className="stat-mini-icon" />
+                                </div>
+                                <div className="stat-mini-content">
+                                    <div className="stat-mini-value">
+                                        <span className="stat-number">Real</span>
+                                    </div>
+                                    <div className="stat-mini-label">Time</div>
                                 </div>
                                 <div className="stat-glow"></div>
                             </div>
@@ -220,6 +232,58 @@ export default function Body(){
                 </div>
             </section>
 
+            {/* Popular Business Categories Section - Above How It Works */}
+            <section id="popular-business-categories" className="business-categories-section" style={{ padding: "80px 0", background: "linear-gradient(to bottom, rgba(59, 130, 246, 0.05), transparent)" }}>
+                <div className="section-container">
+                    <div className="section-header">
+                        <h2 className="section-title">Popular Business Categories</h2>
+                        <p className="section-subtitle">Select your industry to get tailored feedback responses</p>
+                    </div>
+                    <div className="business-categories-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "30px", marginTop: "50px" }}>
+                        {businessCategories.map((category) => (
+                            <div 
+                                key={category.id}
+                                onClick={() => handleCategoryClick(category.id)}
+                                style={{
+                                    background: "white",
+                                    borderRadius: "20px",
+                                    padding: "40px 30px",
+                                    textAlign: "center",
+                                    cursor: "pointer",
+                                    transition: "all 0.3s ease",
+                                    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                                    border: "2px solid transparent"
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.transform = "translateY(-10px)";
+                                    e.currentTarget.style.boxShadow = "0 10px 25px rgba(0, 0, 0, 0.15)";
+                                    e.currentTarget.style.borderColor = category.color;
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.transform = "translateY(0)";
+                                    e.currentTarget.style.boxShadow = "0 4px 6px rgba(0, 0, 0, 0.1)";
+                                    e.currentTarget.style.borderColor = "transparent";
+                                }}
+                            >
+                                <div style={{ 
+                                    fontSize: "48px", 
+                                    color: category.color, 
+                                    marginBottom: "20px",
+                                    display: "flex",
+                                    justifyContent: "center"
+                                }}>
+                                    <FontAwesomeIcon icon={category.icon} />
+                                </div>
+                                <h3 style={{ fontSize: "24px", fontWeight: "bold", marginBottom: "10px", color: "#1F2937" }}>
+                                    {category.name}
+                                </h3>
+                                <p style={{ color: "#6B7280", fontSize: "14px" }}>{category.description}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
             {/* How It Works Section */}
             <section className="how-it-works-section">
                 <div className="section-container">
@@ -255,7 +319,7 @@ export default function Body(){
                     </div>
                 </div>
             </section>
-           
+
         </div>
     );
 }

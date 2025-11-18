@@ -1,10 +1,12 @@
 import "./Navbar.css";
+import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faMicrophone, faHome, faBars, faTimes, faArrowRight } from "@fortawesome/free-solid-svg-icons";
+import { faMicrophone, faHome, faBars, faTimes, faArrowRight, faChartBar } from "@fortawesome/free-solid-svg-icons";
 import { useState } from "react";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   const scrollToSection = (sectionId) => {
     const element = document.getElementById(sectionId);
@@ -27,7 +29,22 @@ export default function Navbar() {
             <FontAwesomeIcon icon={faHome} className="nav-icon" />
             <span>Home</span>
           </button>
-          <button onClick={() => scrollToSection('hero')} className="nav-btn-get-started">
+          <button 
+            onClick={() => {
+              navigate('/dashboard');
+              setIsMenuOpen(false);
+            }} 
+            className="nav-link"
+          >
+            <FontAwesomeIcon icon={faChartBar} className="nav-icon" />
+            <span>Dashboard</span>
+          </button>
+          <button 
+            onClick={() => {
+              scrollToSection('popular-business-categories');
+            }} 
+            className="nav-btn-get-started"
+          >
             Get Started
             <FontAwesomeIcon icon={faArrowRight} className="nav-arrow-icon" />
           </button>

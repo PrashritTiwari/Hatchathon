@@ -340,17 +340,18 @@
 .stat-mini {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 20px 28px;
+    gap: 14px;
+    padding: 16px 22px;
     background: white;
-    border-radius: 20px;
+    border-radius: 18px;
     box-shadow: 0 6px 25px rgba(37, 99, 235, 0.12),
                 0 3px 10px rgba(37, 99, 235, 0.08),
                 inset 0 1px 0 rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(37, 99, 235, 0.12);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     flex: 1;
-    min-width: 150px;
+    min-width: 140px;
+    max-width: 180px;
     position: relative;
     overflow: hidden;
 }
@@ -379,8 +380,8 @@
 }
 
 .stat-mini-icon-wrapper {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     position: relative;
     flex-shrink: 0;
 }
@@ -421,7 +422,7 @@
     position: relative;
     z-index: 1;
     color: white;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -449,18 +450,19 @@
 }
 
 .stat-number {
-    font-size: 1.8rem;
-    font-weight: 900;
+    font-size: 1.35rem;
+    font-weight: 800;
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
     animation: numberCount 1s ease 1.5s both;
+    line-height: 1.2;
 }
 
 .stat-plus {
-    font-size: 1.2rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: #2563eb;
     animation: plusPulse 2s ease-in-out infinite;
@@ -489,12 +491,13 @@
 }
 
 .stat-mini-label {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     color: #64748b;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
+    letter-spacing: 0.5px;
     animation: labelFadeIn 0.5s ease 1.8s both;
+    line-height: 1.3;
 }
 
 @keyframes labelFadeIn {
@@ -839,17 +842,19 @@
 }
 
 .stat-value {
-    font-size: 2.2rem;
+    font-size: 1.75rem;
     font-weight: 800;
     color: #0f172a;
     margin-bottom: 6px;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
 }
 
 .stat-label {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     color: #64748b;
     font-weight: 600;
+    line-height: 1.4;
 }
 
 /* Features Section - Whitish Blue */
@@ -1173,8 +1178,12 @@
         padding: 14px 20px;
     }
     
-    .stat-mini-value {
-        font-size: 1.3rem;
+    .stat-number {
+        font-size: 1.1rem;
+    }
+    
+    .stat-mini-label {
+        font-size: 0.7rem;
     }
     
     .phone-frame {

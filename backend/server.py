@@ -49,26 +49,43 @@ print("✅ Gemini API configured")
 generation_config = GenerationConfig(response_mime_type="application/json")
 
 # --- Prompts (kept from your original) ---
-AI_PROMPT = """You are a conversational customer feedback analyst. Your job is to analyze 
-customer feedback and decide the correct response.
+AI_PROMPT_BASE = """You are talking to a friend about their experience. Be REAL and PERSONAL - like you're actually interested. No business talk, no ratings mentioned, just genuine conversation.
 
-The user gave a score of: {NPS_SCORE}/10
 Here is their feedback (either audio or text):
+
+{business_context}
+
+**CRITICAL - Talk like a REAL PERSON:**
+1. NEVER mention the rating/score they gave - completely ignore it in your response
+2. **MOST IMPORTANT: Use the EXACT WORDS they used** - if they say "product", you say "product". If they say "service", you say "service". If they say "delivery", you say "delivery". ECHO their words back to show you're actually listening
+3. Use "you" - make it personal, like you're actually talking to them
+4. ALWAYS acknowledge what they said first - show you're listening
+5. Be genuinely interested - ask follow-up questions like a friend would
+6. Keep it SHORT - 1-2 sentences, max
+7. Use natural language - contractions, casual words, real talk
+8. NO business jargon, NO formal language, NO customer service speak
 
 Instructions:
 1.  Transcribe the user's feedback exactly (if audio) or use the text as-is (if text).
-2.  Provide a single-word sentiment (e.g., "Positive", "Negative", "Frustrated", "Confused").
-3.  Extract the key feedback points or action items as a list of strings.
+2.  **IDENTIFY the key words/nouns they used** - product, service, delivery, food, staff, website, etc. - you MUST use these same words in your response
+3.  Provide a single-word sentiment (e.g., "Positive", "Negative", "Frustrated", "Confused").
+4.  Extract the key feedback points or action items as a list of strings.
 
-4.  **Decide the Next Step:**
-    -   **IF score is 0-6 (Detractor):** The user is unhappy. Generate an empathetic response that *asks a follow-up question* to get more detail. Set `requiresFollowUp` to `true`.
-        (Example response: "I'm very sorry to hear that. To help us improve, could you tell me more about what part was slow?")
-    -   **IF score is 7-8 (Passive) AND feedback is vague:** Ask a clarifying question. Set `requiresFollowUp` to `true`.
-        (Example response: "Thanks for the feedback. What's one thing we could do to make that a 10 for you?")
-    -   **IF score is 9-10 (Promoter) OR score is 7-8 and feedback is clear:** The user is happy or satisfied. Just say thank you. **Do not ask a question.** Set `requiresFollowUp` to `false`.
-        (Example response: "That's wonderful to hear! We've noted your feedback and really appreciate you sharing.")
-    -   **IF audio is unclear:** Ask them to type their feedback. Set `requiresFollowUp` to `true`.
-        (Example response: "Sorry, I couldn't quite catch that. Could you please type your feedback instead?")
+5.  **Respond naturally like a real person who cares - USE THEIR EXACT WORDS:**
+    -   **IF they said something negative/unhappy:** Show you hear them using their words, then ask what happened. Set `requiresFollowUp` to `true`.
+        - If they said "product": "Oh no, that sucks. What happened with the product exactly?"
+        - If they said "service": "I hear you. What happened with the service?"
+        - Generic: "Oh no, that sucks. What happened exactly?"
+    -   **IF they said something positive but vague:** Acknowledge it using their words, then ask what specifically they like. Set `requiresFollowUp` to `true`.
+        - If they said "product": "Cool! What is the thing that you like about the product?"
+        - If they said "service": "Nice! What makes the service good for you?"
+        - If they said "it": "Cool! What is the thing that you like about it?"
+    -   **IF they gave detailed positive feedback:** Acknowledge it naturally. Set `requiresFollowUp` to `false`.
+        (Example: "That's awesome! Thanks for sharing!" or "Nice! That really helps.")
+    -   **IF they gave detailed negative feedback:** Acknowledge it and thank them. Set `requiresFollowUp` to `false`.
+        (Example: "Got it, thanks for telling me about that.")
+    -   **IF audio is unclear:** Ask casually to type. Set `requiresFollowUp` to `true`.
+        (Example: "Sorry, couldn't catch that. Could you type it for me?")
 
 5.  **Respond ONLY with a valid JSON object in this exact format:**
     {{
@@ -79,26 +96,82 @@ Instructions:
       "requiresFollowUp": true
     }}"""
 
-FOLLOWUP_PROMPT = """You are continuing a customer feedback conversation. Here is the full conversation history:
+BUSINESS_CONTEXTS = {
+    "medical": """**Business Context:** This feedback is for a medical/healthcare business. 
+Your responses should be professional, empathetic, and use medical/healthcare terminology appropriately. 
+Focus on patient care, medical services, treatment quality, wait times, staff professionalism, facility cleanliness, 
+and overall healthcare experience. Be particularly sensitive to patient concerns and privacy.""",
+    
+    "ecommerce": """**Business Context:** This feedback is for an e-commerce/online retail business. 
+Your responses should focus on online shopping experiences, product quality, website usability, shipping/delivery, 
+customer service, return policies, product descriptions accuracy, checkout process, and overall shopping satisfaction. 
+Use e-commerce friendly language and address common online shopping concerns.""",
+    
+    "restaurant": """**Business Context:** This feedback is for a restaurant/food service business. 
+Your responses should focus on food quality, taste, presentation, service speed, staff friendliness, 
+ambiance, cleanliness, value for money, menu variety, and overall dining experience. 
+Use warm, hospitality-focused language that reflects the food service industry."""
+}
 
-**Initial Feedback:**
-- Rating: {NPS_SCORE}/10
-- User said: "{INITIAL_TRANSCRIPTION}"
+def get_business_context(category: str) -> str:
+    """Get business-specific context for the prompt."""
+    if category and category.lower() in BUSINESS_CONTEXTS:
+        return BUSINESS_CONTEXTS[category.lower()]
+    return ""
 
-**Conversation History:**
+FOLLOWUP_PROMPT_BASE = """You are talking to a friend about their experience. Be REAL and PERSONAL - like you're actually interested in what they have to say. No business talk, no ratings mentioned, just genuine conversation.
+
+**What they initially told you:**
+"{INITIAL_TRANSCRIPTION}"
+
+**What you've talked about so far:**
 {CONVERSATION_HISTORY}
 
-Now the user is responding with new feedback (either audio or text):
+**Number of turns so far:** {TURN_COUNT}
+
+{business_context}
+
+**CRITICAL - Talk like a REAL PERSON:**
+1. NEVER mention ratings, scores, or numbers - just talk naturally
+2. ALWAYS acknowledge what they JUST said first - show you're listening
+3. **MOST IMPORTANT: Use the EXACT WORDS they used** - if they say "product", say "product". If they say "service", say "service". If they say "delivery", say "delivery". ECHO their words back to show you're actually listening
+4. Use "you" - make it personal, like you're actually talking to them
+5. **KEEP IT SUPER SHORT** - ONE sentence max, just acknowledge and ask ONE quick question
+6. Use natural language - contractions, casual words, real talk
+7. NO business jargon, NO formal language, NO customer service speak
+
+**CONVERSATION LENGTH MANAGEMENT:**
+- **If this is turn 1-2 (early conversation):** Ask ONE short follow-up question to get more detail. Set `requiresFollowUp` to `true` and `conversationComplete` to `false`.
+- **If this is turn 3+ (conversation getting long):** WRAP IT UP! Thank them naturally and end the conversation. Set `requiresFollowUp` to `false` and `conversationComplete` to `true`.
+  - Examples: "Got it, thanks for telling me about that!" or "Thanks! That really helps." or "Cool, appreciate you sharing!"
+- **If they already gave good detail:** Thank them and end it - don't keep asking questions
+
+**Examples of SHORT responses (USE THEIR EXACT WORDS):**
+- Turn 1-2: "Cool! What is the thing that you like about the product?"
+- Turn 1-2: "Oh no, what happened with the service exactly?"
+- Turn 3+: "Got it, thanks for sharing!" (END CONVERSATION)
+- Turn 3+: "Thanks! That really helps." (END CONVERSATION)
+
+**Business context (just helps you understand what they're talking about - but stay PERSONAL):**
+- Medical: Be caring and understanding, but still talk like a friend
+- E-commerce: Talk naturally about products, shipping, shopping
+- Restaurant: Talk naturally about food, service, the place
+
+Now they're responding with new feedback (either audio or text):
 
 Instructions:
 1. Transcribe their response exactly (if audio) or use the text as-is (if text).
-2. Understand the context of their response in relation to the ENTIRE conversation history above.
-3. Generate an appropriate conversational response:
-   - If they provided helpful details and you have enough information: Acknowledge their response and thank them. Set `conversationComplete` to `true` and `requiresFollowUp` to `false`.
-   - If you need ONE more specific detail to help them better: Ask ONE more targeted follow-up question. Set `conversationComplete` to `false` and `requiresFollowUp` to `true`.
-   - If the response is unclear: Politely ask them to clarify. Set `conversationComplete` to `false` and `requiresFollowUp` to `true`.
-   - If they seem satisfied or you have enough information: Thank them and close the conversation. Set `conversationComplete` to `true` and `requiresFollowUp` to `false`.
-   - **Important:** After 3-4 follow-ups, try to close the conversation gracefully even if some details are missing.
+2. **Count how many turns you've already had** - this tells you if you should wrap up
+3. **IDENTIFY the key words/nouns they used** - product, service, delivery, food, staff, website, etc.
+4. **IF turn 1-2 (early):** 
+   - Acknowledge what they said (like "Got it!", "Cool!", "I see!")
+   - Ask ONE super short follow-up using THEIR EXACT WORDS: "What is the thing that you like about the [word they used]?"
+   - Set `requiresFollowUp` to `true`, `conversationComplete` to `false`
+5. **IF turn 3+ (time to wrap up):**
+   - Acknowledge what they said briefly: "Got it!" or "Cool!" or "Thanks!"
+   - Thank them naturally and END: "Thanks for sharing!" or "That really helps!"
+   - Set `requiresFollowUp` to `false`, `conversationComplete` to `true`
+6. **Keep responses SUPER SHORT** - ONE sentence only, like texting a friend
 
 4. **Respond ONLY with a valid JSON object in this exact format:**
     {{
@@ -378,12 +451,15 @@ async def analytics_summary(
 async def submit_feedback(
     score: int = Form(..., description="NPS score from 0-10"),
     transcription: str = Form(None, description="Pre-transcribed text (faster, optional)"),
-    audio_data: UploadFile = File(None, description="Audio file (fallback if no transcription)")
+    audio_data: UploadFile = File(None, description="Audio file (fallback if no transcription)"),
+    business_category: str = Form(None, description="Business category (medical, ecommerce, restaurant, etc.)")
 ):
     audio_file_handle = None
     temp_path = None
     user_transcription = None
     try:
+        print(f"📥 Received feedback - Score: {score}, Business Category: {business_category}")
+        
         if score < 0 or score > 10:
             raise HTTPException(status_code=400, detail="Score must be 0-10")
 
@@ -411,7 +487,13 @@ async def submit_feedback(
             raise HTTPException(status_code=400, detail="Either transcription or audio_data must be provided")
 
         model = genai.GenerativeModel(model_name="gemini-2.5-flash-preview-09-2025", generation_config=generation_config)
-        prompt = AI_PROMPT.format(NPS_SCORE=score)
+        business_context = get_business_context(business_category) if business_category else ""
+        if business_category:
+            print(f"✅ Using business category: {business_category}")
+            print(f"📝 Business context: {business_context[:100]}...")
+        else:
+            print("⚠️ No business category provided, using generic context")
+        prompt = AI_PROMPT_BASE.format(NPS_SCORE=score, business_context=business_context)
 
         try:
             if user_transcription:
@@ -464,8 +546,33 @@ async def submit_feedback(
             "score": score,
             "sentiment": parsed["sentiment"],
             "feedback": parsed["feedback"],
-            "turns": []
+            "turns": [],
+            "business_category": business_category  # Save business category in history
         }
+
+        # Save initial conversation even if follow-up needed (like AskLet)
+        try:
+            initial_conversation = {
+                "score": score,
+                "sentiment": parsed["sentiment"],
+                "initial_transcription": parsed["transcription"],
+                "initial_feedback_points": parsed["feedback"],
+                "business_category": business_category,  # Save business category
+                "turns": [],
+                "initial_analysis": parsed,
+                "metadata": {
+                    "total_turns": 0,
+                    "requires_followup": parsed.get("requiresFollowUp", True),
+                    "created_at": datetime.utcnow().isoformat() + "Z"
+                },
+                "saved_at": datetime.utcnow().isoformat() + "Z"
+            }
+            
+            saved_filename = save_conversation_file(initial_conversation)
+            parsed["saved_conversation_file"] = saved_filename
+            print(f"💾 Initial conversation saved: {saved_filename} (Business: {business_category or 'None'})")
+        except Exception as e:
+            print(f"⚠️ Failed saving initial conversation: {e}")
 
         result = {
             **parsed,
@@ -490,11 +597,14 @@ async def submit_followup(
     score: int = Form(..., description="Original rating score from 0-10"),
     conversation_history: str = Form(..., description="Full conversation history as JSON string"),
     transcription: str = Form(None, description="Pre-transcribed text (faster, optional)"),
-    audio_data: UploadFile = File(None, description="Follow-up audio file (fallback if no transcription)")
+    audio_data: UploadFile = File(None, description="Follow-up audio file (fallback if no transcription)"),
+    business_category: str = Form(None, description="Business category (medical, ecommerce, restaurant, etc.)")
 ):
     audio_file_handle = None
     temp_path = None
     try:
+        print(f"📥 Received followup - Score: {score}, Business Category: {business_category}")
+        
         if score < 0 or score > 10:
             raise HTTPException(status_code=400, detail="Score must be 0-10")
         try:
@@ -538,13 +648,26 @@ async def submit_followup(
             user_text = t.get("user", "")
             history_text += f"\nTurn {i}:\n AI: {ai_text}\n User: {user_text}\n"
 
+        # Count total turns (this new response will be the next turn)
+        turn_count = len(turns) + 1  # +1 because this is the next turn
+
         model = genai.GenerativeModel(model_name="gemini-2.5-flash-preview-09-2025", generation_config=generation_config)
+        business_context = get_business_context(business_category) if business_category else ""
+        if business_category:
+            print(f"✅ Using business category for followup: {business_category}")
+            print(f"📝 Business context: {business_context[:100]}...")
+        else:
+            print("⚠️ No business category provided for followup, using generic context")
+        
+        print(f"🔄 Conversation turn count: {turn_count} (will wrap up if >= 3)")
 
         if user_transcription:
-            prompt = FOLLOWUP_PROMPT.format(
+            prompt = FOLLOWUP_PROMPT_BASE.format(
                 NPS_SCORE=score,
                 INITIAL_TRANSCRIPTION=initial_transcription,
-                CONVERSATION_HISTORY=history_text if history_text else "No previous follow-ups yet."
+                CONVERSATION_HISTORY=history_text if history_text else "No previous follow-ups yet.",
+                TURN_COUNT=turn_count,
+                business_context=business_context
             )
             prompt_with = f"{prompt}\n\nUser's current response: \"{user_transcription}\""
             try:
@@ -553,10 +676,12 @@ async def submit_followup(
                 print("Model call error (text followup):", e)
                 raise HTTPException(status_code=500, detail=f"Model error: {e}")
         else:
-            prompt = FOLLOWUP_PROMPT.format(
+            prompt = FOLLOWUP_PROMPT_BASE.format(
                 NPS_SCORE=score,
                 INITIAL_TRANSCRIPTION=initial_transcription,
-                CONVERSATION_HISTORY=history_text if history_text else "No previous follow-ups yet."
+                CONVERSATION_HISTORY=history_text if history_text else "No previous follow-ups yet.",
+                TURN_COUNT=turn_count,
+                business_context=business_context
             )
             try:
                 response = await model.generate_content_async([prompt, audio_file_handle])
@@ -603,30 +728,33 @@ async def submit_followup(
         history["last_updated"] = datetime.utcnow().isoformat() + "Z"
         history.setdefault("initial_transcription", initial_transcription)
         history.setdefault("score", score)
+        history["business_category"] = business_category  # Keep business category in history for context
 
-        # If conversation done, save to disk
-        if not parsed.get("requiresFollowUp", True):
-            try:
-                # Build complete conversation data with sentiment
-                complete_conversation = {
-                    "score": score,
-                    "sentiment": initial_sentiment,  # Key feature: user's sentiment
-                    "initial_transcription": initial_transcription,
-                    "initial_feedback_points": initial_feedback,  # Key feedback points
-                    "turns": turns,
-                    "final_analysis": parsed,
-                    "metadata": {
-                        "total_turns": len(turns),
-                        "completed_at": datetime.utcnow().isoformat() + "Z"
-                    },
-                    "saved_at": datetime.utcnow().isoformat() + "Z"
-                }
-                
-                saved_filename = save_conversation_file(complete_conversation)
-                parsed["saved_conversation_file"] = saved_filename
-                print("💾 Conversation saved with sentiment:", saved_filename)
-            except Exception as e:
-                print("Failed saving conversation file:", e)
+        # Always save follow-up conversation (like AskLet - save all interactions)
+        try:
+            # Build updated conversation data with sentiment
+            updated_conversation = {
+                "score": score,
+                "sentiment": initial_sentiment,  # Key feature: user's sentiment
+                "initial_transcription": initial_transcription,
+                "initial_feedback_points": initial_feedback,  # Key feedback points
+                "business_category": business_category,  # Save business category
+                "turns": turns,
+                "latest_analysis": parsed,
+                "metadata": {
+                    "total_turns": len(turns),
+                    "requires_followup": parsed.get("requiresFollowUp", True),
+                    "conversation_complete": parsed.get("conversationComplete", False),
+                    "updated_at": datetime.utcnow().isoformat() + "Z"
+                },
+                "saved_at": datetime.utcnow().isoformat() + "Z"
+            }
+            
+            saved_filename = save_conversation_file(updated_conversation)
+            parsed["saved_conversation_file"] = saved_filename
+            print(f"💾 Follow-up conversation saved: {saved_filename} (Business: {business_category or 'None'}, Turns: {len(turns)})")
+        except Exception as e:
+            print(f"⚠️ Failed saving follow-up conversation: {e}")
 
         # Build return object (merged updated history + analysis)
         result = {
